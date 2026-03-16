@@ -1,10 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, CreditCard, BarChart3, Sparkles } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLANS } from "@/lib/constants";
 import { useDashboard } from "../layout";
+
+/* ------------------------------------------------------------------ */
+/*  Animation variants                                                 */
+/* ------------------------------------------------------------------ */
 
 const containerVariants = {
   hidden: {},
@@ -22,8 +31,11 @@ const itemVariants = {
 
 const currentPlanName = "Hobby";
 
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default function BillingPage() {
-  // keep the hook call for when plan data becomes available
   useDashboard();
 
   return (
@@ -33,31 +45,54 @@ export default function BillingPage() {
       transition={{ staggerChildren: 0.1 }}
       className="space-y-10"
     >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="flex items-center gap-3">
+        <CreditCard className="h-5 w-5 text-emerald-500" />
+        <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+        <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
+          // SUBSCRIPTION MANAGEMENT
+        </span>
+      </motion.div>
+
       {/* Current Plan Banner */}
       <motion.div
         variants={itemVariants}
-        className="rounded-2xl border border-brand/20 bg-brand/[0.04] p-6"
+        className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0a0a0b] p-6"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/15">
-              <CreditCard className="h-5 w-5 text-brand" />
+        {/* Top glow */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+
+        {/* Scanline */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.15) 2px, rgba(16,185,129,0.15) 4px)",
+          }}
+        />
+
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+              <Zap className="h-6 w-6 text-emerald-500" />
             </div>
             <div>
-              <p className="text-sm text-muted">Current Plan</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-600">
+                Active Plan
+              </p>
               <p className="text-xl font-bold">{currentPlanName}</p>
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="font-mono text-3xl font-bold">
+            <span className="font-mono text-4xl font-bold text-emerald-400">
               ${PLANS.find((p) => p.name === currentPlanName)?.price ?? 0}
             </span>
-            <span className="text-sm text-muted">/mo</span>
+            <span className="font-mono text-sm text-zinc-600">/mo</span>
           </div>
         </div>
       </motion.div>
 
-      {/* Plan Comparison */}
+      {/* Plan Cards */}
       <div>
         <motion.h2
           variants={itemVariants}
@@ -69,7 +104,7 @@ export default function BillingPage() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid items-start gap-5 md:grid-cols-3"
+          className="grid items-start gap-4 md:grid-cols-3"
         >
           {PLANS.map((plan) => {
             const isCurrent = plan.name === currentPlanName;
@@ -80,106 +115,87 @@ export default function BillingPage() {
                 className={cn(
                   "relative overflow-hidden rounded-2xl border p-6 transition-all duration-300",
                   isCurrent
-                    ? "border-brand/30 bg-white/[0.04]"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/15 hover:bg-white/[0.05]"
+                    ? "border-emerald-500/20 bg-[#0a0a0b]"
+                    : "border-white/[0.06] bg-[#0a0a0b] hover:border-white/[0.1]",
                 )}
               >
+                {/* Top accent line */}
                 {isCurrent && (
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
                 )}
 
-                <div className="mb-4 flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  {isCurrent && (
-                    <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-medium text-brand">
-                      Current Plan
+                {/* Scanline */}
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-[0.015]"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.15) 2px, rgba(16,185,129,0.15) 4px)",
+                  }}
+                />
+
+                <div className="relative z-10">
+                  <div className="mb-4 flex items-center gap-2">
+                    <h3 className="text-lg font-semibold">{plan.name}</h3>
+                    {isCurrent && (
+                      <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-medium text-emerald-400">
+                        CURRENT
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-sm text-zinc-500">{plan.description}</p>
+
+                  <div className="mt-5 flex items-baseline gap-1">
+                    <span className="font-mono text-3xl font-bold">
+                      ${plan.price}
                     </span>
-                  )}
-                </div>
-
-                <p className="text-sm text-muted">{plan.description}</p>
-
-                <div className="mt-5 flex items-baseline gap-1">
-                  <span className="font-mono text-3xl font-bold">
-                    ${plan.price}
-                  </span>
-                  <span className="text-sm text-muted">/mo</span>
-                </div>
-
-                <button
-                  disabled
-                  className={cn(
-                    "mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed",
-                    isCurrent
-                      ? "border border-white/10 bg-white/5 text-muted"
-                      : "border border-white/10 bg-white/5 text-muted opacity-60"
-                  )}
-                >
-                  {isCurrent ? (
-                    "Current Plan"
-                  ) : (
-                    <span className="flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Coming Soon
+                    <span className="font-mono text-sm text-zinc-600">
+                      /mo
                     </span>
-                  )}
-                </button>
+                  </div>
 
-                <ul className="mt-6 space-y-2.5">
-                  {plan.features.map((feature) => (
-                    <li
-                      key={feature}
-                      className="flex items-start gap-2.5 text-sm text-muted"
-                    >
-                      <Check
-                        size={15}
-                        className={cn(
-                          "mt-0.5 shrink-0",
-                          isCurrent ? "text-brand" : "text-muted/50"
-                        )}
-                      />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                  <button
+                    disabled
+                    className={cn(
+                      "mt-5 w-full rounded-lg px-4 py-2.5 font-mono text-xs font-medium transition-colors disabled:cursor-not-allowed",
+                      isCurrent
+                        ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400/60"
+                        : "border border-white/[0.06] bg-white/[0.03] text-zinc-600",
+                    )}
+                  >
+                    {isCurrent ? (
+                      "CURRENT PLAN"
+                    ) : (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        COMING SOON
+                      </span>
+                    )}
+                  </button>
+
+                  <ul className="mt-6 space-y-2.5">
+                    {plan.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2.5 text-sm text-zinc-500"
+                      >
+                        <Check
+                          size={14}
+                          className={cn(
+                            "mt-0.5 shrink-0",
+                            isCurrent ? "text-emerald-500" : "text-zinc-700",
+                          )}
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </motion.div>
             );
           })}
         </motion.div>
       </div>
-
-      {/* Usage Placeholder */}
-      <motion.div
-        variants={itemVariants}
-        className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.06]">
-            <BarChart3 className="h-4 w-4 text-muted" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">Usage</h3>
-            <p className="text-sm text-muted">
-              Usage tracking coming soon
-            </p>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          {["CPU Hours", "Storage", "Bandwidth"].map((metric) => (
-            <div
-              key={metric}
-              className="rounded-xl border border-dashed border-white/10 p-4 text-center"
-            >
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                {metric}
-              </p>
-              <p className="mt-2 font-mono text-2xl font-bold text-muted/40">
-                --
-              </p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </motion.div>
   );
 }

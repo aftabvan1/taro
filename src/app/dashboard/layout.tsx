@@ -9,7 +9,12 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
+import {
+  ChevronRight,
+  ExternalLink,
+  LogOut,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/dashboard/sidebar";
 
@@ -27,7 +32,7 @@ export interface Instance {
   openclawPort: number | null;
   ttydPort: number | null;
   mcPort: number | null;
-  hetznerServerId: string | null;
+  hetznerServerId?: string | null;
   containerName: string | null;
   mcAuthToken: string | null;
   createdAt: string;
@@ -54,6 +59,8 @@ const DashboardContext = createContext<DashboardContextType>({
   refreshInstances: async () => {},
 });
 
+export { DashboardContext };
+
 export function useDashboard() {
   const ctx = useContext(DashboardContext);
   if (!ctx) {
@@ -69,12 +76,12 @@ export function useDashboard() {
 const routeLabels: Record<string, string> = {
   "/dashboard": "Overview",
   "/dashboard/terminal": "Terminal",
-  "/dashboard/agents": "Agents",
-  "/dashboard/boards": "Boards",
   "/dashboard/monitoring": "Monitoring",
   "/dashboard/backups": "Backups",
+  "/dashboard/integrations": "Integrations",
   "/dashboard/settings": "Settings",
   "/dashboard/billing": "Billing",
+  "/dashboard/web-chat": "Web Chat",
 };
 
 function getPageLabel(pathname: string): string {
@@ -88,27 +95,31 @@ function getPageLabel(pathname: string): string {
 const statusConfig = {
   running: {
     dot: "bg-emerald-500",
-    bg: "bg-emerald-500/10",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
     text: "text-emerald-400",
-    label: "Running",
+    label: "ONLINE",
+    glow: "shadow-[0_0_8px_rgba(16,185,129,0.3)]",
   },
   provisioning: {
     dot: "bg-amber-500",
-    bg: "bg-amber-500/10",
+    bg: "bg-amber-500/10 border-amber-500/20",
     text: "text-amber-400",
-    label: "Provisioning",
+    label: "BOOTING",
+    glow: "shadow-[0_0_8px_rgba(245,158,11,0.3)]",
   },
   stopped: {
-    dot: "bg-zinc-500",
-    bg: "bg-zinc-500/10",
-    text: "text-zinc-400",
-    label: "Stopped",
+    dot: "bg-zinc-600",
+    bg: "bg-zinc-500/10 border-zinc-500/20",
+    text: "text-zinc-500",
+    label: "OFFLINE",
+    glow: "",
   },
   error: {
     dot: "bg-red-500",
-    bg: "bg-red-500/10",
+    bg: "bg-red-500/10 border-red-500/20",
     text: "text-red-400",
-    label: "Error",
+    label: "FAULT",
+    glow: "shadow-[0_0_8px_rgba(239,68,68,0.3)]",
   },
 };
 
@@ -118,25 +129,23 @@ const statusConfig = {
 
 function DashboardSkeleton() {
   return (
-    <div className="flex h-screen w-full">
-      {/* Sidebar skeleton */}
-      <div className="hidden w-64 shrink-0 border-r border-white/[0.06] lg:block">
-        <div className="flex h-16 items-center border-b border-white/[0.06] px-4">
+    <div className="flex h-screen w-full bg-[#0a0a0b]">
+      <div className="hidden w-60 shrink-0 border-r border-emerald-500/10 lg:block">
+        <div className="flex h-14 items-center border-b border-emerald-500/10 px-4">
           <div className="h-8 w-24 animate-pulse rounded-lg bg-white/[0.06]" />
         </div>
-        <div className="mt-4 space-y-2 px-4">
-          {Array.from({ length: 7 }).map((_, i) => (
+        <div className="mt-4 space-y-2 px-3">
+          {Array.from({ length: 9 }).map((_, i) => (
             <div
               key={i}
-              className="h-9 animate-pulse rounded-xl bg-white/[0.04]"
+              className="h-8 animate-pulse rounded-lg bg-white/[0.03]"
               style={{ animationDelay: `${i * 60}ms` }}
             />
           ))}
         </div>
       </div>
-      {/* Content skeleton */}
       <div className="flex-1">
-        <div className="flex h-14 items-center border-b border-white/[0.06] px-6">
+        <div className="flex h-12 items-center border-b border-emerald-500/10 px-6">
           <div className="h-4 w-32 animate-pulse rounded bg-white/[0.06]" />
         </div>
         <div className="p-6">
@@ -144,7 +153,7 @@ function DashboardSkeleton() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
+                className="h-32 animate-pulse rounded-lg border border-white/[0.06] bg-white/[0.02]"
                 style={{ animationDelay: `${i * 80}ms` }}
               />
             ))}
@@ -171,6 +180,7 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const fetchInstances = useCallback(async (jwt: string) => {
     try {
@@ -186,11 +196,14 @@ export default function DashboardLayout({
         return;
       }
       const data = await res.json();
-      const list: Instance[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data.instances)
-          ? data.instances
-          : [];
+      // API returns {data: Instance[]}
+      const list: Instance[] = Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data.instances)
+            ? data.instances
+            : [];
       setInstances(list);
     } catch {
       // network error — keep previous state
@@ -215,9 +228,22 @@ export default function DashboardLayout({
     setToken(jwt);
     setAuthChecked(true);
     fetchInstances(jwt);
+
+    // Try to get user email from token payload
+    try {
+      const payload = JSON.parse(atob(jwt.split(".")[1]));
+      if (payload.email) setUserEmail(payload.email);
+    } catch {
+      // ignore
+    }
   }, [fetchInstances, router]);
 
   const instance = instances[0] ?? null;
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.replace("/");
+  };
 
   if (!authChecked) {
     return <DashboardSkeleton />;
@@ -230,73 +256,112 @@ export default function DashboardLayout({
   const pageLabel = getPageLabel(pathname);
   const status = instance?.status ?? "stopped";
   const sc = statusConfig[status];
+  const avatarLetter = userEmail ? userEmail[0].toUpperCase() : "U";
 
   return (
     <DashboardContext.Provider
       value={{ instance, instances, loading, token, refreshInstances }}
     >
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex h-screen overflow-hidden bg-[#0a0a0b]">
         <Sidebar
           instanceStatus={instance?.status}
           instanceName={instance?.name}
+          instance={instance}
         />
 
         {/* Main area */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Top bar */}
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-4 lg:px-6">
-            {/* Left: breadcrumb (offset on mobile to avoid hamburger) */}
-            <div className="flex items-center gap-1.5 pl-12 text-sm lg:pl-0">
-              <span className="text-muted">Dashboard</span>
-              {pageLabel !== "Overview" && (
-                <>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted/50" />
-                  <span className="font-medium text-foreground">
-                    {pageLabel}
-                  </span>
-                </>
-              )}
-              {pageLabel === "Overview" && (
-                <span className="font-medium text-foreground">
-                  <ChevronRight className="mr-1.5 inline h-3.5 w-3.5 text-muted/50" />
-                  Overview
-                </span>
-              )}
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-emerald-500/10 px-4 lg:px-6">
+            {/* Left: breadcrumb */}
+            <div className="flex items-center gap-1.5 pl-12 lg:pl-0">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-600">
+                sys
+              </span>
+              <ChevronRight className="h-3 w-3 text-zinc-700" />
+              <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-400">
+                {pageLabel}
+              </span>
             </div>
 
-            {/* Right: status + avatar */}
+            {/* Right: instance info + actions */}
             <div className="flex items-center gap-3">
               {/* Instance status badge */}
               {instance && (
                 <div
                   className={cn(
-                    "flex items-center gap-2 rounded-full px-2.5 py-1",
-                    sc.bg
+                    "flex items-center gap-2 rounded-md border px-2.5 py-1",
+                    sc.bg,
+                    sc.glow
                   )}
                 >
+                  <span className="relative flex h-1.5 w-1.5">
+                    {(status === "running" || status === "provisioning") && (
+                      <span
+                        className={cn(
+                          "absolute inline-flex h-full w-full animate-ping rounded-full opacity-50",
+                          sc.dot
+                        )}
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        "relative inline-flex h-1.5 w-1.5 rounded-full",
+                        sc.dot
+                      )}
+                    />
+                  </span>
                   <span
-                    className={cn("inline-block h-1.5 w-1.5 rounded-full", sc.dot)}
-                  />
-                  <span className={cn("text-xs font-medium", sc.text)}>
-                    {sc.label}
+                    className={cn("font-mono text-[10px] font-bold tracking-wider", sc.text)}
+                  >
+                    {instance.name}
+                  </span>
+                  <span className={cn("font-mono text-[10px]", sc.text)}>
+                    [{sc.label}]
                   </span>
                 </div>
               )}
 
-              {/* User avatar placeholder */}
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-xs font-medium text-muted">
-                U
+              {/* Open OpenClaw quick button */}
+              {instance?.serverIp && instance?.openclawPort && (
+                <a
+                  href={`http://${instance.serverIp}:${instance.openclawPort}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                >
+                  <Zap className="h-3 w-3" />
+                  OPEN CLAW
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
+
+              {/* User avatar */}
+              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 font-mono text-[11px] font-bold text-emerald-400">
+                {avatarLetter}
               </div>
+
+              {/* Logout */}
+              <button
+                onClick={handleLogout}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 text-zinc-600 transition-colors hover:text-red-400"
+                title="Logout"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
           </header>
+
+          {/* Scanline decoration */}
+          <div className="pointer-events-none h-px w-full bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
 
           {/* Page content */}
           <main className="flex-1 overflow-y-auto">
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="p-4 lg:p-6"
             >
               {children}

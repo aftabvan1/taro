@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Archive,
   Plus,
@@ -9,44 +9,31 @@ import {
   Loader2,
   AlertTriangle,
   X,
+  HardDrive,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 interface Backup {
   id: string;
   instanceId: string;
   size: number | null;
   status: "in_progress" | "completed" | "failed";
-  storagePath: string | null;
+  storagePath: string;
   createdAt: string;
 }
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
-  },
-};
-
-const statusConfig = {
-  completed: {
-    label: "Completed",
-    className: "bg-emerald-500/15 text-emerald-400",
-  },
-  in_progress: {
-    label: "In Progress",
-    className: "bg-amber-500/15 text-amber-400",
-  },
-  failed: { label: "Failed", className: "bg-red-500/15 text-red-400" },
-} as const;
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null || bytes === 0) return "--";
@@ -70,6 +57,66 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor(
+    (Date.now() - new Date(dateStr).getTime()) / 1000,
+  );
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Status config                                                      */
+/* ------------------------------------------------------------------ */
+
+const statusConfig = {
+  completed: {
+    label: "COMPLETED",
+    icon: CheckCircle2,
+    dotClass: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
+    badgeClass: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+  },
+  in_progress: {
+    label: "IN PROGRESS",
+    icon: Timer,
+    dotClass: "bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]",
+    badgeClass: "border-amber-500/20 bg-amber-500/10 text-amber-400",
+  },
+  failed: {
+    label: "FAILED",
+    icon: XCircle,
+    dotClass: "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]",
+    badgeClass: "border-red-500/20 bg-red-500/10 text-red-400",
+  },
+} as const;
+
+/* ------------------------------------------------------------------ */
+/*  Animation variants                                                 */
+/* ------------------------------------------------------------------ */
+
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: "easeOut" as const },
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default function BackupsPage() {
   const { instance, token } = useDashboard();
   const [backups, setBackups] = useState<Backup[]>([]);
@@ -79,6 +126,7 @@ export default function BackupsPage() {
   const [restoreTarget, setRestoreTarget] = useState<Backup | null>(null);
   const [restoring, setRestoring] = useState(false);
 
+  /* ---- Fetch backups ---- */
   const fetchBackups = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -88,8 +136,13 @@ export default function BackupsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch backups");
-      const data = await res.json();
-      setBackups(data);
+      const json = await res.json();
+      const list: Backup[] = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json)
+          ? json
+          : [];
+      setBackups(list);
     } catch {
       setError("Could not load backups");
     } finally {
@@ -101,9 +154,11 @@ export default function BackupsPage() {
     fetchBackups();
   }, [fetchBackups]);
 
+  /* ---- Create backup ---- */
   async function handleCreate() {
     if (!instance || !token) return;
     setCreating(true);
+    setError(null);
     try {
       const res = await fetch("/api/backups", {
         method: "POST",
@@ -122,9 +177,11 @@ export default function BackupsPage() {
     }
   }
 
+  /* ---- Restore backup ---- */
   async function handleRestore(backup: Backup) {
     if (!token) return;
     setRestoring(true);
+    setError(null);
     try {
       const res = await fetch(`/api/backups/${backup.id}/restore`, {
         method: "POST",
@@ -140,24 +197,38 @@ export default function BackupsPage() {
     }
   }
 
+  /* ---- Loading ---- */
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-500/50" />
+          <span className="font-mono text-xs text-zinc-600">
+            LOADING BACKUP MANIFEST...
+          </span>
+        </div>
       </div>
     );
   }
 
+  /* ---- Error with no data ---- */
   if (error && backups.length === 0) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
-        <AlertTriangle className="h-10 w-10 text-amber-400" />
-        <p className="text-lg font-medium">{error}</p>
+      <div className="flex h-96 flex-col items-center justify-center gap-4 text-center">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <div>
+          <p className="font-medium">{error}</p>
+          <p className="mt-1 font-mono text-xs text-zinc-600">
+            ERR: BACKUP_FETCH_FAILED
+          </p>
+        </div>
         <button
           onClick={fetchBackups}
-          className="mt-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm transition-colors hover:bg-white/[0.08]"
+          className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-2 font-mono text-xs transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/5"
         >
-          Retry
+          RETRY
         </button>
       </div>
     );
@@ -165,178 +236,221 @@ export default function BackupsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Backups</h2>
+        <div className="flex items-center gap-3">
+          <HardDrive className="h-5 w-5 text-emerald-500" />
+          <h1 className="text-2xl font-semibold tracking-tight">Backups</h1>
+          <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
+            // SNAPSHOT MANAGER
+          </span>
+        </div>
         <button
           onClick={handleCreate}
-          disabled={creating}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:opacity-50"
+          disabled={creating || !instance}
+          className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 font-mono text-xs font-medium text-emerald-400 transition-all hover:bg-emerald-500/20 disabled:opacity-50"
         >
           {creating ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
           )}
-          Create Backup
+          CREATE BACKUP
         </button>
       </div>
 
+      {/* Error banner */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-sm text-red-400">
-          {error}
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 font-mono text-xs text-red-400">
+          ERR: {error}
         </div>
       )}
 
+      {/* Empty state */}
       {backups.length === 0 ? (
-        <div className="flex h-72 flex-col items-center justify-center gap-3 text-center">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <Archive className="h-10 w-10 text-muted" />
-          </div>
-          <p className="text-lg font-medium">No backups yet</p>
-          <p className="max-w-sm text-sm text-muted">
-            Create your first backup to protect your instance data.
-          </p>
-        </div>
-      ) : (
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-2"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-white/[0.08] bg-[#0a0a0b]"
         >
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+            <Archive className="h-10 w-10 text-zinc-600" />
+          </div>
+          <div className="text-center">
+            <p className="font-medium">No Backups Found</p>
+            <p className="mt-1 font-mono text-xs text-zinc-600">
+              STATUS: EMPTY_MANIFEST
+            </p>
+            <p className="mt-2 max-w-sm text-sm text-zinc-500">
+              Create your first backup to protect your instance data.
+            </p>
+          </div>
+        </motion.div>
+      ) : (
+        <>
           {/* Table header */}
-          <div className="hidden grid-cols-[1fr_100px_120px_140px_80px] gap-4 px-5 py-2 text-xs font-medium uppercase tracking-wider text-muted sm:grid">
-            <span>Date</span>
+          <div className="hidden grid-cols-[1fr_100px_140px_100px_90px] gap-4 rounded-lg border border-white/[0.04] bg-white/[0.02] px-5 py-2.5 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-600 sm:grid">
+            <span>Timestamp</span>
             <span>Size</span>
             <span>Status</span>
-            <span>Instance</span>
-            <span />
+            <span>Age</span>
+            <span className="text-right">Action</span>
           </div>
 
-          {backups.map((backup) => {
-            const status = statusConfig[backup.status];
-            return (
-              <motion.div
-                key={backup.id}
-                variants={itemVariants}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4 transition-colors hover:border-white/15 hover:bg-white/[0.05]"
-              >
-                {/* Desktop row */}
-                <div className="hidden grid-cols-[1fr_100px_120px_140px_80px] items-center gap-4 sm:grid">
-                  <span className="text-sm">
-                    {formatDate(backup.createdAt)}
-                  </span>
-                  <span className="font-mono text-sm text-muted">
-                    {formatBytes(backup.size)}
-                  </span>
-                  <span
-                    className={cn(
-                      "inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-medium",
-                      status.className
-                    )}
-                  >
-                    {status.label}
-                  </span>
-                  <span className="truncate font-mono text-xs text-muted">
-                    {backup.instanceId.slice(0, 8)}
-                  </span>
-                  <div className="flex justify-end">
-                    {backup.status === "completed" && (
-                      <button
-                        onClick={() => setRestoreTarget(backup)}
-                        className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-white/5 hover:text-foreground"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        Restore
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Mobile layout */}
-                <div className="space-y-2 sm:hidden">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      {formatDate(backup.createdAt)}
+          {/* Backup rows */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-1.5"
+          >
+            {backups.map((backup) => {
+              const sc = statusConfig[backup.status];
+              const StatusIcon = sc.icon;
+              return (
+                <motion.div
+                  key={backup.id}
+                  variants={itemVariants}
+                  className="group rounded-xl border border-white/[0.06] bg-[#0a0a0b] px-5 py-4 transition-colors hover:border-emerald-500/10 hover:bg-white/[0.02]"
+                >
+                  {/* Desktop row */}
+                  <div className="hidden grid-cols-[1fr_100px_140px_100px_90px] items-center gap-4 sm:grid">
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-3.5 w-3.5 text-zinc-600" />
+                      <span className="font-mono text-sm">
+                        {formatDate(backup.createdAt)}
+                      </span>
+                    </div>
+                    <span className="font-mono text-sm text-zinc-400">
+                      {formatBytes(backup.size)}
                     </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        status.className
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-1.5 w-1.5 rounded-full", sc.dotClass)} />
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-medium",
+                          sc.badgeClass,
+                        )}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {sc.label}
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs text-zinc-600">
+                      {timeAgo(backup.createdAt)}
+                    </span>
+                    <div className="flex justify-end">
+                      {backup.status === "completed" && (
+                        <button
+                          onClick={() => setRestoreTarget(backup)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] px-2.5 py-1.5 font-mono text-[10px] font-medium text-zinc-500 opacity-0 transition-all hover:border-amber-500/30 hover:bg-amber-500/5 hover:text-amber-400 group-hover:opacity-100"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          RESTORE
+                        </button>
                       )}
-                    >
-                      {status.label}
-                    </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-muted">
-                    <span className="font-mono">{formatBytes(backup.size)}</span>
-                    {backup.status === "completed" && (
-                      <button
-                        onClick={() => setRestoreTarget(backup)}
-                        className="inline-flex items-center gap-1 text-brand"
+
+                  {/* Mobile layout */}
+                  <div className="space-y-3 sm:hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm">
+                        {formatDate(backup.createdAt)}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-medium",
+                          sc.badgeClass,
+                        )}
                       >
-                        <RotateCcw className="h-3 w-3" />
-                        Restore
-                      </button>
-                    )}
+                        {sc.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-zinc-500">
+                        {formatBytes(backup.size)}
+                      </span>
+                      {backup.status === "completed" && (
+                        <button
+                          onClick={() => setRestoreTarget(backup)}
+                          className="inline-flex items-center gap-1 font-mono text-xs text-amber-400"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          RESTORE
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </motion.div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </>
       )}
 
       {/* Restore Confirmation Modal */}
-      {restoreTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative mx-4 w-full max-w-md rounded-2xl border border-white/10 bg-[#111113] p-6"
-          >
-            <button
-              onClick={() => setRestoreTarget(null)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-muted transition-colors hover:bg-white/5 hover:text-foreground"
+      <AnimatePresence>
+        {restoreTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative mx-4 w-full max-w-md rounded-2xl border border-amber-500/20 bg-[#0c0c0d] p-6"
             >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
-                <RotateCcw className="h-5 w-5 text-amber-400" />
-              </div>
-              <h3 className="text-lg font-semibold">Restore Backup</h3>
-            </div>
-
-            <p className="mt-4 text-sm text-muted">
-              Are you sure you want to restore the backup from{" "}
-              <span className="font-medium text-foreground">
-                {formatDate(restoreTarget.createdAt)}
-              </span>
-              ? This will overwrite your current instance data.
-            </p>
-
-            <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setRestoreTarget(null)}
-                disabled={restoring}
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                className="absolute right-4 top-4 rounded-lg p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
               >
-                Cancel
+                <X className="h-4 w-4" />
               </button>
-              <button
-                onClick={() => handleRestore(restoreTarget)}
-                disabled={restoring}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
-              >
-                {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
-                Restore
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
+                  <RotateCcw className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Restore Backup</h3>
+                  <p className="font-mono text-xs text-zinc-600">
+                    ACTION: ROLLBACK
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm text-zinc-400">
+                Restore the backup from{" "}
+                <span className="font-mono font-medium text-zinc-200">
+                  {formatDate(restoreTarget.createdAt)}
+                </span>
+                ? This will overwrite your current instance data.
+              </p>
+
+              <div className="mt-4 rounded-lg border border-amber-500/10 bg-amber-500/5 px-3 py-2 font-mono text-xs text-amber-400/80">
+                WARNING: This operation cannot be undone.
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setRestoreTarget(null)}
+                  disabled={restoring}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm transition-colors hover:bg-white/[0.06] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleRestore(restoreTarget)}
+                  disabled={restoring}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/15 px-4 py-2 font-mono text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
+                >
+                  {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
+                  RESTORE
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

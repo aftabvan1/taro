@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Cpu,
   MemoryStick,
-  Network,
-  Container,
+  ArrowDownToLine,
+  ArrowUpFromLine,
   RefreshCw,
   Clock,
   ServerOff,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
@@ -18,26 +19,23 @@ import { useDashboard } from "../layout";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface ContainerStats {
-  cpu_percent: number;
-  memory_usage: number;
-  memory_limit: number;
-  network_rx: number;
-  network_tx: number;
-  pids: number;
+interface Stats {
+  cpuPercent: number;
+  memoryUsageMB: number;
+  memoryLimitMB: number;
+  networkRxMB: number;
+  networkTxMB: number;
 }
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const idx = Math.min(i, units.length - 1);
-  const value = bytes / Math.pow(1024, idx);
-  return `${value.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+function formatBytes(mb: number): string {
+  if (mb === 0) return "0 MB";
+  if (mb < 1) return `${(mb * 1024).toFixed(0)} KB`;
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  return `${mb.toFixed(1)} MB`;
 }
 
 function formatTime(date: Date): string {
@@ -48,8 +46,36 @@ function formatTime(date: Date): string {
   });
 }
 
+function getThresholdColor(percent: number): string {
+  if (percent >= 80) return "bg-red-500";
+  if (percent >= 50) return "bg-amber-400";
+  return "bg-emerald-500";
+}
+
+function getThresholdTextColor(percent: number): string {
+  if (percent >= 80) return "text-red-400";
+  if (percent >= 50) return "text-amber-400";
+  return "text-emerald-400";
+}
+
 /* ------------------------------------------------------------------ */
-/*  Animated number                                                    */
+/*  Scanline overlay                                                   */
+/* ------------------------------------------------------------------ */
+
+function ScanlineOverlay() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-10 rounded-2xl opacity-[0.02]"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.15) 2px, rgba(16,185,129,0.15) 4px)",
+      }}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Animated value                                                     */
 /* ------------------------------------------------------------------ */
 
 function AnimatedValue({
@@ -79,49 +105,94 @@ function AnimatedValue({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Glass card                                                         */
-/* ------------------------------------------------------------------ */
-
-function GlassCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-white/10 bg-white/[0.03] p-5",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Progress bar                                                       */
 /* ------------------------------------------------------------------ */
 
 function ProgressBar({
   percent,
-  colorClass = "bg-brand",
+  colorClass,
 }: {
   percent: number;
-  colorClass?: string;
+  colorClass: string;
 }) {
   const clamped = Math.min(100, Math.max(0, percent));
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
       <motion.div
         className={cn("h-full rounded-full", colorClass)}
         initial={{ width: 0 }}
         animate={{ width: `${clamped}%` }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Metric card                                                        */
+/* ------------------------------------------------------------------ */
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  suffix,
+  subtext,
+  percent,
+  delay = 0,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  suffix?: string;
+  subtext?: string;
+  percent?: number;
+  delay?: number;
+}) {
+  const hasBar = percent !== undefined;
+  const barColor = hasBar ? getThresholdColor(percent) : "bg-emerald-500";
+  const textColor = hasBar ? getThresholdTextColor(percent) : "text-emerald-400";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+      className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-5"
+    >
+      <ScanlineOverlay />
+
+      {/* Top glow line */}
+      {hasBar && percent >= 80 && (
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+      )}
+
+      <div className="relative z-20 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+            {icon}
+            <span className="font-mono text-xs uppercase tracking-wider">
+              {label}
+            </span>
+          </div>
+          {hasBar && (
+            <span className={cn("font-mono text-xs", textColor)}>
+              {percent.toFixed(1)}%
+            </span>
+          )}
+        </div>
+
+        <div className="font-mono text-2xl font-bold tracking-tight">
+          <AnimatedValue value={value} suffix={suffix} />
+        </div>
+
+        {hasBar && <ProgressBar percent={percent} colorClass={barColor} />}
+
+        {subtext && (
+          <p className="font-mono text-xs text-zinc-600">{subtext}</p>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -137,13 +208,21 @@ function PlaceholderCard({
   label: string;
 }) {
   return (
-    <GlassCard>
-      <div className="flex items-center gap-2 text-sm text-muted">
-        {icon}
-        {label}
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-5">
+      <ScanlineOverlay />
+      <div className="relative z-20">
+        <div className="flex items-center gap-2 text-sm text-zinc-500">
+          {icon}
+          <span className="font-mono text-xs uppercase tracking-wider">
+            {label}
+          </span>
+        </div>
+        <p className="mt-3 font-mono text-2xl font-bold text-zinc-700">
+          &mdash;
+        </p>
+        <div className="mt-3 h-1.5 w-full rounded-full bg-white/[0.04]" />
       </div>
-      <p className="mt-3 text-2xl font-semibold">&mdash;</p>
-    </GlassCard>
+    </div>
   );
 }
 
@@ -156,7 +235,7 @@ const POLL_INTERVAL = 5000;
 export default function MonitoringPage() {
   const { instance, loading, token } = useDashboard();
 
-  const [stats, setStats] = useState<ContainerStats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -176,7 +255,8 @@ export default function MonitoringPage() {
           (body as { error?: string }).error ?? "Failed to fetch stats",
         );
       }
-      const data: ContainerStats = await res.json();
+      const json = await res.json();
+      const data: Stats = json.data ?? json;
       setStats(data);
       setLastUpdated(new Date());
       setError(null);
@@ -214,7 +294,8 @@ export default function MonitoringPage() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-2xl bg-white/[0.06]"
+              className="h-36 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]"
+              style={{ animationDelay: `${i * 80}ms` }}
             />
           ))}
         </div>
@@ -228,14 +309,17 @@ export default function MonitoringPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex h-full flex-col items-center justify-center gap-6"
+        className="flex h-[calc(100vh-12rem)] flex-col items-center justify-center gap-6"
       >
-        <div className="rounded-full border border-white/10 bg-white/[0.03] p-6">
-          <ServerOff className="h-10 w-10 text-muted" />
+        <div className="rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-6">
+          <ServerOff className="h-10 w-10 text-zinc-600" />
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-semibold">No instance selected</h2>
-          <p className="mt-2 text-sm text-muted">
+          <h2 className="text-xl font-semibold">No Instance Selected</h2>
+          <p className="mt-2 font-mono text-xs text-zinc-500">
+            SYS_STATUS: NO_TARGET
+          </p>
+          <p className="mt-2 text-sm text-zinc-500">
             Create or select an instance to view monitoring data.
           </p>
         </div>
@@ -244,23 +328,11 @@ export default function MonitoringPage() {
   }
 
   /* ---- Derived values ---- */
-  const cpuPercent = stats?.cpu_percent ?? 0;
+  const cpuPercent = stats?.cpuPercent ?? 0;
   const memPercent =
-    stats && stats.memory_limit > 0
-      ? (stats.memory_usage / stats.memory_limit) * 100
+    stats && stats.memoryLimitMB > 0
+      ? (stats.memoryUsageMB / stats.memoryLimitMB) * 100
       : 0;
-  const cpuColor =
-    cpuPercent > 80
-      ? "bg-red-500"
-      : cpuPercent > 50
-        ? "bg-amber-400"
-        : "bg-brand";
-  const memColor =
-    memPercent > 80
-      ? "bg-red-500"
-      : memPercent > 50
-        ? "bg-amber-400"
-        : "bg-brand";
 
   const showPlaceholders = !stats && (error || instance.status !== "running");
 
@@ -273,31 +345,39 @@ export default function MonitoringPage() {
         className="flex flex-col gap-6"
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Monitoring</h1>
+          <div className="flex items-center gap-3">
+            <Activity className="h-5 w-5 text-emerald-500" />
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Monitoring
+            </h1>
+            <span className="font-mono text-xs text-zinc-600">
+              // SYSTEM DIAGNOSTICS
+            </span>
+          </div>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-            {error}
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 font-mono text-xs text-red-400">
+            ERR: {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PlaceholderCard
             icon={<Cpu className="h-3.5 w-3.5" />}
-            label="CPU Usage"
+            label="CPU"
           />
           <PlaceholderCard
             icon={<MemoryStick className="h-3.5 w-3.5" />}
             label="Memory"
           />
           <PlaceholderCard
-            icon={<Network className="h-3.5 w-3.5" />}
-            label="Network I/O"
+            icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
+            label="Network RX"
           />
           <PlaceholderCard
-            icon={<Container className="h-3.5 w-3.5" />}
-            label="Container"
+            icon={<ArrowUpFromLine className="h-3.5 w-3.5" />}
+            label="Network TX"
           />
         </div>
       </motion.div>
@@ -313,23 +393,29 @@ export default function MonitoringPage() {
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Monitoring</h1>
+        <div className="flex items-center gap-3">
+          <Activity className="h-5 w-5 text-emerald-500" />
+          <h1 className="text-2xl font-semibold tracking-tight">Monitoring</h1>
+          <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
+            // SYSTEM DIAGNOSTICS
+          </span>
+        </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
-            <span className="flex items-center gap-1.5 text-xs text-muted">
+            <span className="flex items-center gap-1.5 font-mono text-xs text-zinc-600">
               <Clock className="h-3 w-3" />
-              Last updated {formatTime(lastUpdated)}
+              {formatTime(lastUpdated)}
             </span>
           )}
           <button
             onClick={fetchStats}
             disabled={fetching}
-            className="rounded-md p-1.5 transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+            className="rounded-lg border border-white/[0.06] p-2 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/5 disabled:opacity-50"
             aria-label="Refresh stats"
           >
             <RefreshCw
               className={cn(
-                "h-4 w-4 text-muted",
+                "h-4 w-4 text-zinc-400",
                 fetching && "animate-spin",
               )}
             />
@@ -338,124 +424,75 @@ export default function MonitoringPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-          {error}
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 font-mono text-xs text-red-400">
+          ERR: {error}
         </div>
       )}
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* CPU */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0, duration: 0.4 }}
-        >
-          <GlassCard className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <Cpu className="h-3.5 w-3.5" />
-              CPU Usage
-            </div>
-            <div className="text-2xl font-semibold">
-              <AnimatedValue
-                value={cpuPercent.toFixed(1)}
-                suffix="%"
-              />
-            </div>
-            <ProgressBar percent={cpuPercent} colorClass={cpuColor} />
-          </GlassCard>
-        </motion.div>
+        <MetricCard
+          icon={<Cpu className="h-3.5 w-3.5" />}
+          label="CPU"
+          value={cpuPercent.toFixed(1)}
+          suffix="%"
+          percent={cpuPercent}
+          delay={0}
+        />
+        <MetricCard
+          icon={<MemoryStick className="h-3.5 w-3.5" />}
+          label="Memory"
+          value={stats ? formatBytes(stats.memoryUsageMB) : "\u2014"}
+          percent={memPercent}
+          subtext={
+            stats
+              ? `${formatBytes(stats.memoryUsageMB)} / ${formatBytes(stats.memoryLimitMB)}`
+              : undefined
+          }
+          delay={0.05}
+        />
+        <MetricCard
+          icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
+          label="Network RX"
+          value={stats ? formatBytes(stats.networkRxMB) : "\u2014"}
+          delay={0.1}
+        />
+        <MetricCard
+          icon={<ArrowUpFromLine className="h-3.5 w-3.5" />}
+          label="Network TX"
+          value={stats ? formatBytes(stats.networkTxMB) : "\u2014"}
+          delay={0.15}
+        />
+      </div>
 
-        {/* Memory */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.4 }}
-        >
-          <GlassCard className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <MemoryStick className="h-3.5 w-3.5" />
-              Memory
-            </div>
-            <div className="text-2xl font-semibold">
-              <AnimatedValue
-                value={stats ? formatBytes(stats.memory_usage) : "\u2014"}
-              />
-            </div>
-            <ProgressBar percent={memPercent} colorClass={memColor} />
-            <p className="text-xs text-muted">
-              {stats
-                ? `${formatBytes(stats.memory_usage)} / ${formatBytes(stats.memory_limit)}`
-                : "\u2014"}
-            </p>
-          </GlassCard>
-        </motion.div>
-
-        {/* Network I/O */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-        >
-          <GlassCard className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <Network className="h-3.5 w-3.5" />
-              Network I/O
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">RX</span>
-                <span className="font-mono text-sm font-medium">
-                  <AnimatedValue
-                    value={stats ? formatBytes(stats.network_rx) : "\u2014"}
-                  />
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">TX</span>
-                <span className="font-mono text-sm font-medium">
-                  <AnimatedValue
-                    value={stats ? formatBytes(stats.network_tx) : "\u2014"}
-                  />
-                </span>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Container Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4 }}
-        >
-          <GlassCard className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <Container className="h-3.5 w-3.5" />
-              Container
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full",
-                  instance.status === "running"
-                    ? "bg-emerald-400"
-                    : instance.status === "error"
-                      ? "bg-red-500"
-                      : "bg-zinc-500",
-                )}
-              />
-              <span className="text-xl font-semibold capitalize">
-                {instance.status}
-              </span>
-            </div>
-            {stats && (
-              <p className="text-xs text-muted">
-                {stats.pids} active process{stats.pids !== 1 ? "es" : ""}
-              </p>
-            )}
-          </GlassCard>
-        </motion.div>
+      {/* Status bar */}
+      <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#0a0a0b] px-4 py-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                instance.status === "running"
+                  ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+                  : "bg-zinc-600",
+              )}
+            />
+            <span className="font-mono text-xs uppercase text-zinc-500">
+              {instance.status}
+            </span>
+          </div>
+          <span className="font-mono text-xs text-zinc-700">|</span>
+          <span className="font-mono text-xs text-zinc-600">
+            {instance.containerName ?? "no-container"}
+          </span>
+          <span className="font-mono text-xs text-zinc-700">|</span>
+          <span className="font-mono text-xs text-zinc-600">
+            {instance.region}
+          </span>
+        </div>
+        <span className="font-mono text-xs text-zinc-700">
+          POLL: {POLL_INTERVAL / 1000}s
+        </span>
       </div>
     </motion.div>
   );
