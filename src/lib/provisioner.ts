@@ -53,27 +53,42 @@ export const provisionInstance = async (
   const containerName = `taro-${instanceName}`;
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
-  // Create instance directory
-  await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/mc-db`);
+  // Create instance directory and config
+  await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config`);
+
+  // Write OpenClaw config (no auth for seamless Web Chat access via HTTPS proxy)
+  await conn.execCommand(
+    `cat > ${instanceDir}/data/openclaw-config/openclaw.json << CONFIGEOF
+{
+  "gateway": {
+    "controlUi": {
+      "allowedOrigins": ["https://${serverIp}", "http://${serverIp}:${ports.openclaw}", "http://localhost:3000"]
+    },
+    "auth": {
+      "mode": "none"
+    }
+  }
+}
+CONFIGEOF`
+  );
+  await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/openclaw-config`);
 
   // Write docker-compose.yml
+  // OpenClaw binds to 127.0.0.1:18789 internally, so we use host networking
+  // and a socat forwarder to expose it on the allocated port.
+  // Mission Control runs globally on the server, not per-instance.
   const compose = `
 services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ${containerName}-openclaw
-    ports:
-      - "${ports.openclaw}:3000"
+    network_mode: host
     volumes:
       - ./data/openclaw:/data
+      - ./data/openclaw-config:/home/node/.openclaw
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=1024
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          memory: 512M
 
   ttyd:
     image: tsl0922/ttyd:latest
@@ -81,45 +96,6 @@ services:
     ports:
       - "${ports.ttyd}:7681"
     command: ttyd sh
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-
-  mission-control:
-    image: ghcr.io/abhi1693/openclaw-mission-control:latest
-    container_name: ${containerName}-mc
-    ports:
-      - "${ports.mc}:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@mc-db:5432/mc
-      - AUTH_MODE=local
-      - AUTH_TOKEN=${mcAuthToken}
-    depends_on:
-      mc-db:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
-
-  mc-db:
-    image: postgres:16-alpine
-    container_name: ${containerName}-mcdb
-    environment:
-      - POSTGRES_DB=mc
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - ./data/mc-db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 `;
 
@@ -131,6 +107,23 @@ COMPOSEEOF`
 
   // Start the stack
   await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+
+  // Create socat forwarder to expose OpenClaw (binds to localhost only) on the allocated port
+  await conn.execCommand(
+    `cat > /etc/systemd/system/taro-socat-${instanceName}.service << SOCATEOF
+[Unit]
+Description=Socat forwarder for ${containerName} OpenClaw
+After=docker.service
+
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:${ports.openclaw},fork,reuseaddr TCP:127.0.0.1:18789
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+SOCATEOF
+systemctl daemon-reload && systemctl enable taro-socat-${instanceName} && systemctl start taro-socat-${instanceName}`
+  );
 
   // Update DB with connection details
   await db
@@ -182,9 +175,14 @@ export const restartInstance = async (containerName: string) => {
 
 export const deleteInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
-  const instanceDir = `/opt/taro/instances/${containerName.replace("taro-", "")}`;
+  const instanceName = containerName.replace("taro-", "");
+  const instanceDir = `/opt/taro/instances/${instanceName}`;
   await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
   await conn.execCommand(`rm -rf ${instanceDir}`);
+  // Clean up socat forwarder
+  await conn.execCommand(
+    `systemctl stop taro-socat-${instanceName} 2>/dev/null; systemctl disable taro-socat-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-socat-${instanceName}.service; systemctl daemon-reload`
+  );
 };
 
 export interface ContainerStats {

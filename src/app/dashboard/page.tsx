@@ -246,9 +246,9 @@ export default function DashboardOverview() {
 
   /* ---- Quick actions ---- */
   const openWebChat = useCallback(() => {
-    if (!instance?.serverIp || !instance?.openclawPort) return;
+    if (!instance?.serverIp) return;
     window.open(
-      `http://${instance.serverIp}:${instance.openclawPort}`,
+      `https://${instance.serverIp.replace(/\./g, "-")}.nip.io`,
       "_blank"
     );
   }, [instance]);
@@ -507,7 +507,7 @@ export default function DashboardOverview() {
           {/* Web Chat */}
           <button
             onClick={openWebChat}
-            disabled={!instance?.serverIp || !instance?.openclawPort}
+            disabled={!instance?.serverIp}
             className="group flex flex-col items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-4 py-4 transition-all hover:border-emerald-500/20 hover:bg-emerald-500/[0.04] hover:shadow-[0_0_15px_rgba(16,185,129,0.08)] disabled:cursor-not-allowed disabled:opacity-30"
           >
             <MessageSquare className="h-5 w-5 text-emerald-400 transition-transform group-hover:scale-110" />

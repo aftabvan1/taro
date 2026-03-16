@@ -106,7 +106,7 @@ interface NavItem {
 
 function buildNavItems(instance?: Instance | null): NavItem[] {
   const serverIp = instance?.serverIp;
-  const openclawPort = instance?.openclawPort;
+  const mcAuthToken = instance?.mcAuthToken;
 
   return [
     { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
@@ -114,8 +114,8 @@ function buildNavItems(instance?: Instance | null): NavItem[] {
       label: "Web Chat",
       icon: MessageSquare,
       externalHref:
-        serverIp && openclawPort
-          ? `http://${serverIp}:${openclawPort}`
+        serverIp
+          ? `https://${serverIp.replace(/\./g, "-")}.nip.io`
           : undefined,
       isExternal: true,
     },

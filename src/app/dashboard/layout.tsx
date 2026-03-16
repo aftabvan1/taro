@@ -323,9 +323,9 @@ export default function DashboardLayout({
               )}
 
               {/* Open OpenClaw quick button */}
-              {instance?.serverIp && instance?.openclawPort && (
+              {instance?.serverIp && (
                 <a
-                  href={`http://${instance.serverIp}:${instance.openclawPort}`}
+                  href={`https://${instance.serverIp.replace(/\./g, "-")}.nip.io`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-emerald-400 transition-colors hover:bg-emerald-500/20"
