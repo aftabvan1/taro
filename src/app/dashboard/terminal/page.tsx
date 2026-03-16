@@ -10,6 +10,7 @@ import {
   MonitorOff,
   Wifi,
   WifiOff,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
@@ -31,22 +32,6 @@ const TERMINAL_ASCII = `
 `;
 
 /* ------------------------------------------------------------------ */
-/*  Scanline overlay                                                   */
-/* ------------------------------------------------------------------ */
-
-function ScanlineOverlay() {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
-      style={{
-        backgroundImage:
-          "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.15) 2px, rgba(16,185,129,0.15) 4px)",
-      }}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -61,9 +46,11 @@ export default function TerminalPage() {
   const hasTerminal =
     instance?.serverIp != null && instance?.ttydPort != null;
 
-  const terminalUrl = hasTerminal
-    ? `http://${instance.serverIp}:${instance.ttydPort}`
+  const ttydHost = hasTerminal
+    ? `ttyd-${instance.serverIp!.replace(/\./g, "-")}.nip.io`
     : null;
+
+  const terminalUrl = ttydHost ? `https://${ttydHost}` : null;
 
   /* ---- Uptime counter ---- */
   useEffect(() => {
@@ -122,7 +109,6 @@ export default function TerminalPage() {
         className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-6"
       >
         <div className="relative rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-8">
-          <ScanlineOverlay />
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
               <MonitorOff className="h-5 w-5 text-emerald-500/60" />
@@ -158,9 +144,8 @@ export default function TerminalPage() {
       )}
     >
       {/* Toolbar */}
-      <div className="relative flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#0a0a0b] px-4 py-2.5">
-        <ScanlineOverlay />
-        <div className="z-20 flex items-center gap-4">
+      <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#0a0a0b] px-4 py-2.5">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Terminal className="h-4 w-4 text-emerald-500" />
             <span className="text-sm font-semibold">Terminal</span>
@@ -192,7 +177,7 @@ export default function TerminalPage() {
           </div>
         </div>
 
-        <div className="z-20 flex items-center gap-4">
+        <div className="flex items-center gap-4">
           {/* Uptime readout */}
           {connected && (
             <span className="font-mono text-xs text-zinc-500">
@@ -200,10 +185,21 @@ export default function TerminalPage() {
             </span>
           )}
 
-          {/* Target IP */}
+          {/* Target */}
           <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-            {instance.serverIp}:{instance.ttydPort}
+            {ttydHost}
           </span>
+
+          {/* Open in new tab */}
+          <a
+            href={terminalUrl!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-white/[0.06] p-1.5 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/5"
+            title="Open in new tab"
+          >
+            <ExternalLink className="h-4 w-4 text-zinc-400" />
+          </a>
 
           {/* Fullscreen toggle */}
           <button
@@ -225,7 +221,7 @@ export default function TerminalPage() {
         <iframe
           src={terminalUrl!}
           title="Terminal"
-          className="relative z-0 h-full w-full border-0 bg-[#0a0a0b]"
+          className="h-full w-full border-0 bg-[#0a0a0b]"
           onLoad={() => setConnected(true)}
           onError={() => setConnected(false)}
           allow="clipboard-read; clipboard-write"

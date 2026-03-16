@@ -95,7 +95,7 @@ services:
     container_name: ${containerName}-ttyd
     ports:
       - "${ports.ttyd}:7681"
-    command: ttyd sh
+    command: ttyd -W bash
     restart: unless-stopped
 `;
 
@@ -123,6 +123,21 @@ Restart=always
 WantedBy=multi-user.target
 SOCATEOF
 systemctl daemon-reload && systemctl enable taro-socat-${instanceName} && systemctl start taro-socat-${instanceName}`
+  );
+
+  // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy + nip.io
+  const nipDomain = serverIp.replace(/\./g, "-") + ".nip.io";
+  await conn.execCommand(
+    `cat > /etc/caddy/Caddyfile << CADDYEOF
+${nipDomain} {
+    reverse_proxy 127.0.0.1:18789
+}
+
+ttyd-${nipDomain} {
+    reverse_proxy 127.0.0.1:${ports.ttyd}
+}
+CADDYEOF
+systemctl reload caddy`
   );
 
   // Update DB with connection details
