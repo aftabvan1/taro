@@ -4,10 +4,11 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/ui/section";
 import { DynamicIcon } from "@/components/ui/icon-map";
 import { FEATURES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
+  visible: { transition: { staggerChildren: 0.08 } },
 };
 
 const itemVariants = {
@@ -34,19 +35,24 @@ export const FeaturesGrid = () => {
             <span className="text-gradient">run AI agents</span>
           </h2>
           <p className="mt-4 text-muted">
-            From deployment to monitoring, we handle the infrastructure so you
-            can focus on what your agent does.
+            From deploy to production monitoring — all in one platform.
           </p>
         </motion.div>
 
+        {/* Bento grid: first two cards span wider */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((feature) => (
+          {FEATURES.map((feature, i) => (
             <motion.div
               key={feature.title}
               variants={itemVariants}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-7 backdrop-blur-sm transition-all duration-300 hover:border-white/15 hover:bg-white/[0.06]"
+              className={cn(
+                "group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 backdrop-blur-sm transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04]",
+                // First two cards span 2 cols on large screens for bento effect
+                i === 0 && "lg:col-span-2",
+                i === 1 && "lg:col-span-1"
+              )}
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 ring-1 ring-brand/20">
                 <DynamicIcon
                   name={feature.icon}
                   size={20}

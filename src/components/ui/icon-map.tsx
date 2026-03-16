@@ -7,6 +7,7 @@ import {
   Activity,
   Store,
   Lock,
+  LayoutDashboard,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ const iconMap: Record<string, LucideIcon> = {
   Activity,
   Store,
   Lock,
+  LayoutDashboard,
 };
 
 interface DynamicIconProps {

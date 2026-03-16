@@ -42,9 +42,9 @@ interface SidebarProps {
 
 const statusConfig = {
   running: {
-    color: "bg-emerald-500",
-    ring: "ring-emerald-500/30",
-    text: "text-emerald-400",
+    color: "bg-violet-500",
+    ring: "ring-violet-500/30",
+    text: "text-violet-400",
     label: "ONLINE",
   },
   provisioning: {
@@ -161,12 +161,12 @@ export function Sidebar({
       {/* ---- Logo ---- */}
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-emerald-500/10 px-4",
+          "flex h-14 shrink-0 items-center border-b border-violet-500/10 px-4",
           collapsed && "justify-center px-0"
         )}
       >
         {collapsed ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
             <svg
               width="16"
               height="16"
@@ -189,7 +189,7 @@ export function Sidebar({
       {/* ---- Navigation ---- */}
       <nav className="mt-3 flex-1 space-y-0.5 px-2 overflow-y-auto">
         {!collapsed && (
-          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-emerald-500/50">
+          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-violet-500/50">
             Systems
           </p>
         )}
@@ -204,7 +204,7 @@ export function Sidebar({
                 "relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                 collapsed && "justify-center px-0",
                 active
-                  ? "text-emerald-400"
+                  ? "text-violet-400"
                   : disabled
                     ? "cursor-not-allowed text-white/20"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -216,14 +216,14 @@ export function Sidebar({
               {active && (
                 <motion.div
                   layoutId="sidebar-active-bar"
-                  className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                  className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.6)]"
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
               )}
               {active && (
                 <motion.div
                   layoutId="sidebar-active-bg"
-                  className="absolute inset-0 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.06]"
+                  className="absolute inset-0 rounded-lg border border-violet-500/10 bg-violet-500/[0.06]"
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
               )}
@@ -232,7 +232,7 @@ export function Sidebar({
                 className={cn(
                   "relative z-10 h-4 w-4 shrink-0",
                   active
-                    ? "text-emerald-400"
+                    ? "text-violet-400"
                     : disabled
                       ? "text-white/20"
                       : "text-zinc-600 group-hover:text-zinc-400"
@@ -250,7 +250,7 @@ export function Sidebar({
           );
 
           const sectionHeader = showSection && !collapsed ? (
-            <p className="mt-4 mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-emerald-500/50">
+            <p className="mt-4 mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-violet-500/50">
               {item.section}
             </p>
           ) : null;
@@ -323,7 +323,7 @@ export function Sidebar({
       )}
 
       {/* ---- Collapse toggle ---- */}
-      <div className="shrink-0 border-t border-emerald-500/10 p-2">
+      <div className="shrink-0 border-t border-violet-500/10 p-2">
         <button
           onClick={() => setCollapsed((prev) => !prev)}
           className={cn(
@@ -349,10 +349,10 @@ export function Sidebar({
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-[#0a0a0b]/90 backdrop-blur-sm lg:hidden"
+        className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-lg border border-violet-500/20 bg-[#0a0a0b]/90 backdrop-blur-sm lg:hidden"
         aria-label="Open navigation"
       >
-        <Menu className="h-5 w-5 text-emerald-400" />
+        <Menu className="h-5 w-5 text-violet-400" />
       </button>
 
       {/* Mobile overlay */}
@@ -371,7 +371,7 @@ export function Sidebar({
               animate={{ x: 0 }}
               exit={{ x: -240 }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="fixed inset-y-0 left-0 z-50 w-60 border-r border-emerald-500/10 bg-[#0a0a0b] lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-60 border-r border-violet-500/10 bg-[#0a0a0b] lg:hidden"
             >
               <button
                 onClick={() => setMobileOpen(false)}
@@ -391,7 +391,7 @@ export function Sidebar({
         initial={false}
         animate={{ width: collapsed ? 56 : 240 }}
         transition={{ type: "spring", stiffness: 350, damping: 30 }}
-        className="sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r border-emerald-500/10 bg-[#0a0a0b] lg:block"
+        className="sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r border-violet-500/10 bg-[#0a0a0b] lg:block"
       >
         {sidebarContent}
       </motion.aside>

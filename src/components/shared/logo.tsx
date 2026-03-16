@@ -16,7 +16,7 @@ export const Logo = ({ className, size = "md" }: LogoProps) => {
 
   return (
     <a href="/" className={cn("flex items-center gap-2 font-bold tracking-tight", sizes[size], className)}>
-      <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
+      <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
         <svg
           width="18"
           height="18"

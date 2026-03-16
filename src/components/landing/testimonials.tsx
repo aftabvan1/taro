@@ -32,27 +32,27 @@ export const Testimonials = () => {
             Loved by builders
           </h2>
           <p className="mt-4 text-muted">
-            See what developers are saying about Taro.
+            Developers shipping real agents with Taro.
           </p>
         </motion.div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
           {TESTIMONIALS.map((t) => (
             <motion.div
               key={t.name}
               variants={itemVariants}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-7 backdrop-blur-sm transition-all duration-300 hover:border-white/15 hover:bg-white/[0.05]"
+              className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 backdrop-blur-sm transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.04] hover:-translate-y-1"
             >
-              <p className="mb-6 leading-relaxed text-muted italic">
+              <p className="mb-6 text-[15px] leading-relaxed text-muted">
                 &ldquo;{t.quote}&rdquo;
               </p>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/15 font-mono text-sm font-medium text-brand">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 font-mono text-sm font-medium text-brand ring-1 ring-brand/20">
                   {t.avatar}
                 </div>
                 <div>
                   <p className="text-sm font-medium">{t.name}</p>
-                  <p className="text-xs text-muted">{t.role}</p>
+                  <p className="text-xs text-muted/70">{t.role}</p>
                 </div>
               </div>
             </motion.div>

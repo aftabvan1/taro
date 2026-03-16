@@ -35,11 +35,11 @@ export const Pricing = () => {
             Simple, transparent pricing
           </h2>
           <p className="mt-4 text-muted">
-            Start free, scale when you&apos;re ready. No surprises.
+            Start building for $5/mo. Scale when you&apos;re ready.
           </p>
         </motion.div>
 
-        <div className="grid items-start gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl items-start gap-6 md:grid-cols-3">
           {PLANS.map((plan) => (
             <motion.div
               key={plan.name}
@@ -47,8 +47,8 @@ export const Pricing = () => {
               className={cn(
                 "relative overflow-hidden rounded-2xl border p-8 transition-all duration-300",
                 plan.highlighted
-                  ? "border-brand/30 bg-white/[0.04] glow-brand-sm scale-[1.02]"
-                  : "border-white/10 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
+                  ? "border-brand/20 bg-white/[0.04] shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)] md:scale-[1.03]"
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.03]"
               )}
             >
               {plan.highlighted && (
@@ -56,7 +56,7 @@ export const Pricing = () => {
               )}
 
               {plan.highlighted && (
-                <span className="mb-4 inline-block rounded-full bg-brand/15 px-3 py-1 font-mono text-xs text-brand">
+                <span className="mb-4 inline-block rounded-full bg-brand/10 px-3 py-1 font-mono text-xs text-brand ring-1 ring-brand/20">
                   Most Popular
                 </span>
               )}
@@ -74,7 +74,7 @@ export const Pricing = () => {
               <Button
                 variant={plan.highlighted ? "primary" : "secondary"}
                 className="mt-6 w-full"
-                href="#"
+                href="/auth/register"
               >
                 {plan.cta}
               </Button>
@@ -89,7 +89,7 @@ export const Pricing = () => {
                       size={16}
                       className={cn(
                         "mt-0.5 shrink-0",
-                        plan.highlighted ? "text-brand" : "text-muted/60"
+                        plan.highlighted ? "text-brand" : "text-muted/50"
                       )}
                     />
                     {feature}

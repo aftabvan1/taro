@@ -4,8 +4,8 @@ const FOOTER_LINKS = {
   Product: [
     { label: "Features", href: "#features" },
     { label: "Pricing", href: "#pricing" },
+    { label: "Mission Control", href: "#mission-control" },
     { label: "Dashboard", href: "/dashboard" },
-    { label: "Changelog", href: "#" },
   ],
   Resources: [
     { label: "Documentation", href: "#" },
@@ -23,13 +23,13 @@ const FOOTER_LINKS = {
 
 export const Footer = () => {
   return (
-    <footer className="border-t border-border/50 px-6 py-16 md:px-8">
+    <footer className="border-t border-white/[0.04] px-6 py-16 md:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand */}
           <div>
             <Logo size="sm" />
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted/70">
               Managed OpenClaw hosting with built-in mission control. Deploy in
               seconds, manage like a pro.
             </p>
@@ -38,13 +38,13 @@ export const Footer = () => {
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([category, links]) => (
             <div key={category}>
-              <h4 className="mb-4 text-sm font-semibold">{category}</h4>
+              <h4 className="mb-4 text-sm font-semibold text-foreground/80">{category}</h4>
               <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm text-muted transition-colors duration-200 hover:text-foreground"
+                      className="text-sm text-muted/60 transition-colors duration-200 hover:text-foreground"
                     >
                       {link.label}
                     </a>
@@ -56,15 +56,15 @@ export const Footer = () => {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border/50 pt-8 md:flex-row">
-          <p className="text-xs text-muted">
+        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/[0.04] pt-8 md:flex-row">
+          <p className="text-xs text-muted/40">
             &copy; {new Date().getFullYear()} Taro Labs. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             {/* GitHub */}
             <a
               href="#"
-              className="text-muted transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-foreground"
               aria-label="GitHub"
             >
               <svg
@@ -79,7 +79,7 @@ export const Footer = () => {
             {/* Twitter/X */}
             <a
               href="#"
-              className="text-muted transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-foreground"
               aria-label="Twitter"
             >
               <svg
@@ -94,7 +94,7 @@ export const Footer = () => {
             {/* Discord */}
             <a
               href="#"
-              className="text-muted transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-foreground"
               aria-label="Discord"
             >
               <svg

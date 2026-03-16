@@ -1,9 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { XCircle, CheckCircle, TrendingUp } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { Section } from "@/components/ui/section";
-import { cn } from "@/lib/utils";
+import { LinesPatternCard, LinesPatternCardBody } from "@/components/ui/card-with-lines-pattern";
 
 const containerVariants = {
   hidden: {},
@@ -15,54 +15,27 @@ const cardVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
+    transition: { duration: 0.6, ease: "easeOut" as const },
   },
 };
 
 const PAIN_POINTS = [
-  "Provision a VPS & install Docker",
-  "Configure SSL certificates",
-  "Set up monitoring & alerts",
-  "Write backup cron jobs",
-  "Patch security vulnerabilities",
-  "Debug networking issues",
+  "Provision a VPS and configure Docker",
+  "Set up SSL, DNS, and reverse proxies",
+  "Write cron jobs for backups",
+  "Build monitoring from scratch",
+  "Patch security vulnerabilities monthly",
+  "Debug networking at 2 AM",
 ];
 
-const TARO_STEPS = [
-  "Pick a plan",
-  "Click deploy",
-  "Your agent is live",
+const SOLUTIONS = [
+  "One-click deploy — live in 30 seconds",
+  "SSL, DNS, and networking handled for you",
+  "Automated backups with one-click restore",
+  "Built-in monitoring dashboard",
+  "Hardened containers with auto-patching",
+  "Mission Control for full agent oversight",
 ];
-
-const RESULTS = [
-  { label: "Deploy time", value: "30s" },
-  { label: "Uptime", value: "99.9%" },
-  { label: "Servers to manage", value: "0" },
-];
-
-interface CardProps {
-  children: React.ReactNode;
-  className?: string;
-  accentColor: string;
-}
-
-const Card = ({ children, className, accentColor }: CardProps) => (
-  <motion.div
-    variants={cardVariants}
-    className={cn(
-      "relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-sm",
-      className
-    )}
-  >
-    <div
-      className={cn(
-        "absolute inset-x-0 top-0 h-px",
-        accentColor
-      )}
-    />
-    {children}
-  </motion.div>
-);
 
 export const ProblemSolution = () => {
   return (
@@ -72,78 +45,75 @@ export const ProblemSolution = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
-        className="space-y-12"
       >
-        <div className="text-center">
+        <motion.div variants={cardVariants} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Self-hosting is a <span className="text-red-400">time sink</span>
+            Why <span className="text-gradient">Taro</span>?
           </h2>
           <p className="mt-4 text-muted">
-            You want an AI agent, not a second job managing infrastructure.
+            You want to ship AI agents, not manage infrastructure.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Pain */}
-          <Card accentColor="bg-gradient-to-r from-red-500/80 to-red-500/0">
-            <div className="mb-5 flex items-center gap-2">
-              <XCircle size={18} className="text-red-400" />
-              <h3 className="font-semibold text-red-400">Without Taro</h3>
-            </div>
-            <ul className="space-y-3">
-              {PAIN_POINTS.map((point) => (
-                <li
-                  key={point}
-                  className="flex items-start gap-2.5 text-sm text-muted"
-                >
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-400/60" />
-                  {point}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 font-mono text-xs text-red-400/70">
-              ~105 minutes of setup
-            </p>
-          </Card>
-
-          {/* Solution */}
-          <Card accentColor="bg-gradient-to-r from-brand/80 to-brand/0">
-            <div className="mb-5 flex items-center gap-2">
-              <CheckCircle size={18} className="text-brand" />
-              <h3 className="font-semibold text-brand">With Taro</h3>
-            </div>
-            <ol className="space-y-4">
-              {TARO_STEPS.map((step, i) => (
-                <li key={step} className="flex items-center gap-3 text-sm">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 font-mono text-xs text-brand">
-                    {i + 1}
-                  </span>
-                  <span className="text-foreground">{step}</span>
-                </li>
-              ))}
-            </ol>
-            <p className="mt-6 font-mono text-xs text-brand/70">
-              30 seconds. Done.
-            </p>
-          </Card>
-
-          {/* Result */}
-          <Card accentColor="bg-gradient-to-r from-accent/80 to-accent/0">
-            <div className="mb-5 flex items-center gap-2">
-              <TrendingUp size={18} className="text-accent" />
-              <h3 className="font-semibold text-accent">The Result</h3>
-            </div>
-            <div className="space-y-6">
-              {RESULTS.map((stat) => (
-                <div key={stat.label}>
-                  <p className="font-mono text-3xl font-bold text-foreground">
-                    {stat.value}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">{stat.label}</p>
+        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+          {/* Without Taro */}
+          <LinesPatternCard
+            className="rounded-2xl border-red-500/20 bg-[#0c0c0e]"
+            gradientClassName="from-[#0c0c0e]/80 via-[#0c0c0e]/60 to-[#0c0c0e]/40"
+          >
+            <LinesPatternCardBody>
+              <div className="mb-6 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+                  <X size={16} className="text-red-400" />
                 </div>
-              ))}
-            </div>
-          </Card>
+                <h3 className="font-semibold text-red-400">Without Taro</h3>
+              </div>
+              <ul className="space-y-4">
+                {PAIN_POINTS.map((point) => (
+                  <li
+                    key={point}
+                    className="flex items-start gap-3 text-sm text-foreground/70"
+                  >
+                    <X size={14} className="mt-0.5 shrink-0 text-red-400/60" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-8 font-mono text-xs text-red-400/60">
+                ~2 hours of setup if you know what you&apos;re doing. A whole
+                weekend if you don&apos;t. Plus ongoing maintenance forever.
+              </p>
+            </LinesPatternCardBody>
+          </LinesPatternCard>
+
+          {/* With Taro */}
+          <LinesPatternCard
+            className="rounded-2xl border-brand/20 bg-[#0c0c0e]"
+            gradientClassName="from-[#0c0c0e]/80 via-[#0c0c0e]/60 to-[#0c0c0e]/40"
+          >
+            <LinesPatternCardBody>
+              <div className="mb-6 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10">
+                  <Check size={16} className="text-brand" />
+                </div>
+                <h3 className="font-semibold text-brand">With Taro</h3>
+              </div>
+              <ul className="space-y-4">
+                {SOLUTIONS.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-3 text-sm text-foreground/80"
+                  >
+                    <Check size={14} className="mt-0.5 shrink-0 text-brand" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-8 font-mono text-xs text-brand/60">
+                30 seconds. Zero maintenance.
+              </p>
+            </LinesPatternCardBody>
+          </LinesPatternCard>
         </div>
       </motion.div>
     </Section>
