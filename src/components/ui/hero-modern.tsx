@@ -142,7 +142,7 @@ function HeroOrbitDeck() {
             Now in public beta
           </span>
 
-          <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
+          <h1 className="mt-8 font-[family-name:var(--font-jetbrains)] text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
             Deploy. Control.{" "}
             <span className="text-gradient">Everything.</span>
           </h1>
