@@ -105,3 +105,112 @@ export const activityLogs = pgTable("activity_logs", {
     .notNull()
     .defaultNow(),
 });
+
+// ─── Mission Control: Agents ─────────────────────────────────────────────────
+
+export const mcAgentStatusEnum = pgEnum("mc_agent_status", [
+  "active",
+  "pending",
+  "stopped",
+]);
+
+export const mcAgents = pgTable("mc_agents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  status: mcAgentStatusEnum("mc_agent_status").notNull().default("pending"),
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  lastActive: timestamp("last_active", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  cpuUsage: integer("cpu_usage").notNull().default(0),
+  memoryUsage: integer("memory_usage").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Boards ─────────────────────────────────────────────────
+
+export const mcBoards = pgTable("mc_boards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Tasks ──────────────────────────────────────────────────
+
+export const mcTaskStatusEnum = pgEnum("mc_task_status", [
+  "todo",
+  "in_progress",
+  "done",
+]);
+
+export const mcTaskPriorityEnum = pgEnum("mc_task_priority", [
+  "low",
+  "medium",
+  "high",
+]);
+
+export const mcTasks = pgTable("mc_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  boardId: uuid("board_id")
+    .notNull()
+    .references(() => mcBoards.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: mcTaskStatusEnum("mc_task_status").notNull().default("todo"),
+  agentName: text("agent_name").notNull().default(""),
+  priority: mcTaskPriorityEnum("mc_task_priority").notNull().default("medium"),
+  assignee: text("assignee"),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Activity ───────────────────────────────────────────────
+
+export const mcActivity = pgTable("mc_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  message: text("message").notNull(),
+  agentName: text("agent_name").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Approvals ──────────────────────────────────────────────
+
+export const mcApprovalStatusEnum = pgEnum("mc_approval_status", [
+  "pending",
+  "approved",
+  "denied",
+]);
+
+export const mcApprovals = pgTable("mc_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  agentName: text("agent_name").notNull(),
+  action: text("action").notNull(),
+  command: text("command").notNull(),
+  status: mcApprovalStatusEnum("mc_approval_status")
+    .notNull()
+    .default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

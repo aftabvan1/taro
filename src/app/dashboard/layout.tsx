@@ -82,6 +82,9 @@ const routeLabels: Record<string, string> = {
   "/dashboard/settings": "Settings",
   "/dashboard/billing": "Billing",
   "/dashboard/web-chat": "Web Chat",
+  "/dashboard/agents": "Agents",
+  "/dashboard/boards": "Boards",
+  "/dashboard/activity": "Activity Feed",
 };
 
 function getPageLabel(pathname: string): string {

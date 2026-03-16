@@ -222,7 +222,6 @@ export default function TerminalPage() {
 
       {/* Iframe container */}
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/[0.06]">
-        <ScanlineOverlay />
         <iframe
           src={terminalUrl!}
           title="Terminal"
@@ -230,7 +229,6 @@ export default function TerminalPage() {
           onLoad={() => setConnected(true)}
           onError={() => setConnected(false)}
           allow="clipboard-read; clipboard-write"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
       </div>
     </motion.div>

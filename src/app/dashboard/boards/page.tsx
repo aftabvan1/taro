@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid,
@@ -8,6 +8,12 @@ import {
   AlertTriangle,
   Loader2,
   ClipboardList,
+  Circle,
+  CheckCircle2,
+  Bot,
+  Calendar,
+  RefreshCw,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
@@ -15,32 +21,75 @@ import type { MCBoard, MCTask } from "@/lib/mission-control/types";
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.06 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: "easeOut" as const },
+    transition: { duration: 0.35, ease: "easeOut" as const },
   },
 };
 
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const priorityConfig = {
-  high: { label: "High", className: "bg-red-500/15 text-red-400" },
-  medium: { label: "Medium", className: "bg-amber-500/15 text-amber-400" },
-  low: { label: "Low", className: "bg-zinc-500/15 text-zinc-400" },
+  high: {
+    label: "HIGH",
+    stripe: "bg-red-500",
+    badge: "bg-red-500/10 text-red-400 border-red-500/20",
+  },
+  medium: {
+    label: "MED",
+    stripe: "bg-amber-500",
+    badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  },
+  low: {
+    label: "LOW",
+    stripe: "bg-zinc-600",
+    badge: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
+  },
 } as const;
 
-const columns = [
-  { key: "todo" as const, label: "Todo", color: "text-zinc-400" },
+const columnConfig = [
+  {
+    key: "todo" as const,
+    label: "Todo",
+    icon: Circle,
+    color: "text-zinc-400",
+    headerBorder: "border-zinc-500/20",
+    countBg: "bg-zinc-500/10 text-zinc-400",
+  },
   {
     key: "in_progress" as const,
     label: "In Progress",
+    icon: Loader2,
     color: "text-amber-400",
+    headerBorder: "border-amber-500/20",
+    countBg: "bg-amber-500/10 text-amber-400",
   },
-  { key: "done" as const, label: "Done", color: "text-emerald-400" },
+  {
+    key: "done" as const,
+    label: "Done",
+    icon: CheckCircle2,
+    color: "text-emerald-400",
+    headerBorder: "border-emerald-500/20",
+    countBg: "bg-emerald-500/10 text-emerald-400",
+  },
 ];
 
 export default function BoardsPage() {
@@ -51,6 +100,7 @@ export default function BoardsPage() {
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchBoards = useCallback(async () => {
     if (!instance || !token) return;
@@ -71,9 +121,9 @@ export default function BoardsPage() {
   }, [instance, token]);
 
   const fetchTasks = useCallback(
-    async (board: MCBoard) => {
+    async (board: MCBoard, silent = false) => {
       if (!token) return;
-      setTasksLoading(true);
+      if (!silent) setTasksLoading(true);
       try {
         const res = await fetch(
           `/api/mission-control/boards/${board.id}/tasks`,
@@ -82,9 +132,9 @@ export default function BoardsPage() {
         if (!res.ok) throw new Error("Failed to fetch tasks");
         const data = await res.json();
         setTasks(data);
-        setSelectedBoard(board);
+        if (!silent) setSelectedBoard(board);
       } catch {
-        setError("Could not load tasks for this board");
+        if (!silent) setError("Could not load tasks for this board");
       } finally {
         setTasksLoading(false);
       }
@@ -96,56 +146,54 @@ export default function BoardsPage() {
     fetchBoards();
   }, [fetchBoards]);
 
+  // Auto-refresh tasks when viewing a board
+  useEffect(() => {
+    if (!selectedBoard) return;
+    pollRef.current = setInterval(() => fetchTasks(selectedBoard, true), 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [selectedBoard, fetchTasks]);
+
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted" />
+      <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+          <p className="font-mono text-xs text-zinc-600">LOADING BOARDS...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !selectedBoard) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
-        <AlertTriangle className="h-10 w-10 text-amber-400" />
-        <p className="text-lg font-medium">{error}</p>
-        <p className="text-sm text-muted">
-          Make sure your instance is running and Mission Control is accessible.
-        </p>
+      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-4">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <AlertTriangle className="h-8 w-8 text-amber-400" />
+        </div>
+        <p className="font-mono text-sm text-zinc-300">{error}</p>
         <button
           onClick={fetchBoards}
-          className="mt-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm transition-colors hover:bg-white/[0.08]"
+          className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-xs text-emerald-400 transition-colors hover:bg-emerald-500/20"
         >
-          Retry
+          <RefreshCw className="h-3.5 w-3.5" />
+          RETRY
         </button>
       </div>
     );
   }
 
-  if (boards.length === 0 && !selectedBoard) {
-    return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <LayoutGrid className="h-10 w-10 text-muted" />
-        </div>
-        <p className="text-lg font-medium">No boards yet</p>
-        <p className="max-w-sm text-sm text-muted">
-          Boards will appear here once agents create them through Mission
-          Control.
-        </p>
-      </div>
-    );
-  }
-
-  // Task kanban view
+  // ---- Kanban View ----
   if (selectedBoard) {
-    const grouped = columns.map((col) => ({
+    const grouped = columnConfig.map((col) => ({
       ...col,
       tasks: tasks.filter((t) => t.status === col.key),
     }));
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
+        {/* Header */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -153,44 +201,82 @@ export default function BoardsPage() {
               setTasks([]);
               setError(null);
             }}
-            className="rounded-lg border border-white/10 bg-white/5 p-2 transition-colors hover:bg-white/[0.08]"
+            className="rounded-lg border border-white/[0.06] bg-[#0c0c0d] p-2 transition-colors hover:border-emerald-500/20 hover:bg-emerald-500/5"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 text-zinc-400" />
           </button>
           <div>
-            <h2 className="text-lg font-semibold">{selectedBoard.name}</h2>
-            <p className="text-sm text-muted">{selectedBoard.description}</p>
+            <h2 className="font-mono text-lg font-bold tracking-tight text-zinc-200">
+              {selectedBoard.name}
+            </h2>
+            {selectedBoard.description && (
+              <p className="font-mono text-xs text-zinc-600">
+                {selectedBoard.description}
+              </p>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-50" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
+            <span className="font-mono text-[10px] text-emerald-500/70">LIVE</span>
           </div>
         </div>
 
         {tasksLoading ? (
           <div className="flex h-64 items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted" />
-          </div>
-        ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-            <AlertTriangle className="h-8 w-8 text-amber-400" />
-            <p className="text-sm text-muted">{error}</p>
+            <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
           </div>
         ) : tasks.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-            <ClipboardList className="h-8 w-8 text-muted" />
-            <p className="text-sm text-muted">No tasks on this board yet.</p>
+          <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-white/[0.06] bg-[#0c0c0d]">
+            <ClipboardList className="h-8 w-8 text-zinc-600" />
+            <p className="font-mono text-xs text-zinc-500">
+              No tasks on this board yet.
+            </p>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-3">
             {grouped.map((column) => (
               <div key={column.key}>
-                <div className="mb-3 flex items-center gap-2">
+                {/* Column header */}
+                <div
+                  className={cn(
+                    "mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2",
+                    column.key === "in_progress" && "border-t-amber-500/30"
+                  )}
+                >
+                  <column.icon
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      column.color,
+                      column.key === "in_progress" && "animate-spin"
+                    )}
+                    style={
+                      column.key === "in_progress"
+                        ? { animationDuration: "3s" }
+                        : undefined
+                    }
+                  />
                   <span
-                    className={cn("text-sm font-semibold", column.color)}
+                    className={cn(
+                      "font-mono text-xs font-bold tracking-wider",
+                      column.color
+                    )}
                   >
-                    {column.label}
+                    {column.label.toUpperCase()}
                   </span>
-                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-muted">
+                  <span
+                    className={cn(
+                      "ml-auto rounded-full px-2 py-0.5 font-mono text-[10px] font-bold",
+                      column.countBg
+                    )}
+                  >
                     {column.tasks.length}
                   </span>
                 </div>
+
+                {/* Tasks */}
                 <AnimatePresence mode="popLayout">
                   <motion.div
                     variants={containerVariants}
@@ -200,38 +286,78 @@ export default function BoardsPage() {
                   >
                     {column.tasks.map((task) => {
                       const priority = priorityConfig[task.priority];
+                      const isOverdue =
+                        task.due_date &&
+                        new Date(task.due_date).getTime() < Date.now() &&
+                        task.status !== "done";
+
                       return (
                         <motion.div
                           key={task.id}
                           variants={itemVariants}
                           layout
-                          className="rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:border-white/15 hover:bg-white/[0.05]"
+                          className="group overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0d] transition-all hover:border-white/10"
                         >
-                          <p className="text-sm font-medium">{task.title}</p>
-                          <div className="mt-2.5 flex items-center gap-2">
-                            <span className="font-mono text-xs text-muted">
-                              {task.agent_name}
-                            </span>
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                                priority.className
-                              )}
-                            >
-                              {priority.label}
-                            </span>
-                          </div>
-                          {task.assignee && (
-                            <p className="mt-1.5 text-xs text-muted">
-                              Assigned to {task.assignee}
+                          {/* Priority stripe */}
+                          <div
+                            className={cn("h-[2px] w-full", priority.stripe)}
+                          />
+                          <div className="p-3">
+                            <p className="font-mono text-sm font-medium text-zinc-300">
+                              {task.title}
                             </p>
-                          )}
+                            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                              {task.agent_name && (
+                                <div className="flex items-center gap-1 rounded border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5">
+                                  <Bot className="h-3 w-3 text-emerald-400" />
+                                  <span className="font-mono text-[10px] text-emerald-400">
+                                    {task.agent_name}
+                                  </span>
+                                </div>
+                              )}
+                              <span
+                                className={cn(
+                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold",
+                                  priority.badge
+                                )}
+                              >
+                                {priority.label}
+                              </span>
+                              {task.due_date && (
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-1",
+                                    isOverdue
+                                      ? "text-red-400"
+                                      : "text-zinc-600"
+                                  )}
+                                >
+                                  <Calendar className="h-3 w-3" />
+                                  <span className="font-mono text-[10px]">
+                                    {new Date(
+                                      task.due_date
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {task.assignee && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 font-mono text-[9px] font-bold text-zinc-400">
+                                  {task.assignee[0]?.toUpperCase()}
+                                </div>
+                                <span className="font-mono text-[10px] text-zinc-600">
+                                  {task.assignee}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </motion.div>
                       );
                     })}
                     {column.tasks.length === 0 && (
-                      <div className="rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-muted">
-                        No tasks
+                      <div className="rounded-lg border border-dashed border-white/[0.06] py-8 text-center font-mono text-[10px] text-zinc-700">
+                        NO TASKS
                       </div>
                     )}
                   </motion.div>
@@ -244,39 +370,75 @@ export default function BoardsPage() {
     );
   }
 
-  // Boards list
+  // ---- Board List View ----
+  if (boards.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-4">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <LayoutGrid className="h-8 w-8 text-zinc-600" />
+        </div>
+        <p className="font-mono text-sm text-zinc-400">No boards yet</p>
+        <p className="max-w-sm text-center font-mono text-xs text-zinc-600">
+          Boards will appear here once agents create them through Mission
+          Control.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <h2 className="mb-5 text-lg font-semibold">Boards</h2>
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/20 to-transparent" />
+        <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500/50">
+          Project Boards
+        </span>
+        <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/20 to-transparent" />
+      </div>
+
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
       >
         {boards.map((board) => (
           <motion.button
             key={board.id}
             variants={itemVariants}
             onClick={() => fetchTasks(board)}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-colors hover:border-white/15 hover:bg-white/[0.05]"
+            className="group overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0d] text-left transition-all hover:border-emerald-500/15 hover:shadow-[0_0_20px_rgba(16,185,129,0.04)]"
           >
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10">
-                <LayoutGrid className="h-4 w-4 text-brand" />
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10">
+                  <LayoutGrid className="h-4 w-4 text-emerald-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-sm font-bold tracking-tight text-zinc-200">
+                    {board.name}
+                  </p>
+                  <p className="mt-1 line-clamp-2 font-mono text-xs text-zinc-600">
+                    {board.description}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{board.name}</p>
-                <p className="mt-1 line-clamp-2 text-sm text-muted">
-                  {board.description}
-                </p>
+              <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-3">
+                <div className="flex items-center gap-1.5">
+                  <ClipboardList className="h-3 w-3 text-zinc-600" />
+                  <span className="font-mono text-[10px] text-zinc-500">
+                    {board.task_count}{" "}
+                    {board.task_count === 1 ? "task" : "tasks"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-zinc-700" />
+                  <span className="font-mono text-[10px] text-zinc-600">
+                    {relativeTime(board.created_at)}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2 text-xs text-muted">
-              <ClipboardList className="h-3.5 w-3.5" />
-              <span>
-                {board.task_count} {board.task_count === 1 ? "task" : "tasks"}
-              </span>
             </div>
           </motion.button>
         ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,7 +8,9 @@ import {
   LayoutDashboard,
   Terminal,
   MessageSquare,
-  Radar,
+  Bot,
+  LayoutGrid,
+  Radio,
   Activity,
   HardDrive,
   Settings,
@@ -102,11 +104,11 @@ interface NavItem {
   href?: string;
   externalHref?: string;
   isExternal?: boolean;
+  section?: string;
 }
 
 function buildNavItems(instance?: Instance | null): NavItem[] {
   const serverIp = instance?.serverIp;
-  const mcAuthToken = instance?.mcAuthToken;
 
   return [
     { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
@@ -120,15 +122,12 @@ function buildNavItems(instance?: Instance | null): NavItem[] {
       isExternal: true,
     },
     { label: "Terminal", icon: Terminal, href: "/dashboard/terminal" },
-    {
-      label: "Mission Control",
-      icon: Radar,
-      externalHref: serverIp ? `http://${serverIp}:10002` : undefined,
-      isExternal: true,
-    },
     { label: "Monitoring", icon: Activity, href: "/dashboard/monitoring" },
     { label: "Backups", icon: HardDrive, href: "/dashboard/backups" },
-    { label: "Integrations", icon: Plug, href: "/dashboard/integrations" },
+    { label: "Agents", icon: Bot, href: "/dashboard/agents", section: "Mission Control" },
+    { label: "Boards", icon: LayoutGrid, href: "/dashboard/boards" },
+    { label: "Activity", icon: Radio, href: "/dashboard/activity" },
+    { label: "Integrations", icon: Plug, href: "/dashboard/integrations", section: "Platform" },
     { label: "Settings", icon: Settings, href: "/dashboard/settings" },
     { label: "Billing", icon: CreditCard, href: "/dashboard/billing" },
   ];
@@ -194,7 +193,8 @@ export function Sidebar({
             Systems
           </p>
         )}
-        {navItems.map((item) => {
+        {navItems.map((item, idx) => {
+          const showSection = item.section && (idx === 0 || navItems[idx - 1]?.section !== item.section);
           const active = isActive(item.href);
           const disabled = item.isExternal && !item.externalHref;
 
@@ -249,34 +249,44 @@ export function Sidebar({
             </motion.div>
           );
 
+          const sectionHeader = showSection && !collapsed ? (
+            <p className="mt-4 mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-emerald-500/50">
+              {item.section}
+            </p>
+          ) : null;
+
           if (item.isExternal) {
             return (
-              <a
-                key={item.label}
-                href={item.externalHref ?? "#"}
-                target={item.externalHref ? "_blank" : undefined}
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (disabled) e.preventDefault();
-                  setMobileOpen(false);
-                }}
-                className="group relative block"
-                aria-disabled={disabled}
-              >
-                {content}
-              </a>
+              <React.Fragment key={item.label}>
+                {sectionHeader}
+                <a
+                  href={item.externalHref ?? "#"}
+                  target={item.externalHref ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (disabled) e.preventDefault();
+                    setMobileOpen(false);
+                  }}
+                  className="group relative block"
+                  aria-disabled={disabled}
+                >
+                  {content}
+                </a>
+              </React.Fragment>
             );
           }
 
           return (
-            <Link
-              key={item.label}
-              href={item.href!}
-              onClick={() => setMobileOpen(false)}
-              className="group relative block"
-            >
-              {content}
-            </Link>
+            <React.Fragment key={item.label}>
+              {sectionHeader}
+              <Link
+                href={item.href!}
+                onClick={() => setMobileOpen(false)}
+                className="group relative block"
+              >
+                {content}
+              </Link>
+            </React.Fragment>
           );
         })}
       </nav>

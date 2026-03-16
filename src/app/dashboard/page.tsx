@@ -254,9 +254,8 @@ export default function DashboardOverview() {
   }, [instance]);
 
   const openMissionControl = useCallback(() => {
-    if (!instance?.serverIp) return;
-    window.open(`http://${instance.serverIp}:10002`, "_blank");
-  }, [instance]);
+    router.push("/dashboard/agents");
+  }, [router]);
 
   const createBackup = useCallback(async () => {
     if (!instance || !token) return;
@@ -530,12 +529,11 @@ export default function DashboardOverview() {
           {/* Mission Control */}
           <button
             onClick={openMissionControl}
-            disabled={!instance?.serverIp}
-            className="group flex flex-col items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-4 py-4 transition-all hover:border-violet-500/20 hover:bg-violet-500/[0.04] hover:shadow-[0_0_15px_rgba(139,92,246,0.08)] disabled:cursor-not-allowed disabled:opacity-30"
+            className="group flex flex-col items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-4 py-4 transition-all hover:border-violet-500/20 hover:bg-violet-500/[0.04] hover:shadow-[0_0_15px_rgba(139,92,246,0.08)]"
           >
             <Radar className="h-5 w-5 text-violet-400 transition-transform group-hover:scale-110" />
             <span className="font-mono text-[11px] font-bold tracking-wider text-zinc-400 group-hover:text-violet-400">
-              MISSION CTRL
+              AGENTS
             </span>
           </button>
 
