@@ -53,7 +53,7 @@ cat > /etc/caddy/Caddyfile << 'CADDYEOF'
 # Do not edit manually
 
 # Fallback for unmatched subdomains
-*.instances.taro.sh {
+*.instances.taroagent.com {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
@@ -114,6 +114,6 @@ echo "    Dirs:    /opt/taro/instances, /opt/taro/backups"
 echo "    Firewall: SSH(22), HTTP(80), HTTPS(443)"
 echo ""
 echo "Next steps:"
-echo "  1. Point *.instances.taro.sh DNS (A record) to this server's IP"
+echo "  1. Point *.instances.taroagent.com DNS (A record) to this server's IP"
 echo "  2. Set CLOUDFLARE_API_TOKEN in /etc/caddy/environment for wildcard TLS"
 echo "  3. Update your Taro .env with this server's IP"

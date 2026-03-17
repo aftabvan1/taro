@@ -16,8 +16,8 @@ const OUTPUT_LINES = [
   { text: "  Starting agent runtime...", color: "text-muted", delay: 2.8 },
   { text: "  Build complete (2.1 MB)", color: "text-brand", delay: 3.3 },
   { text: "", color: "text-muted", delay: 3.6 },
-  { text: "  Instance live at  https://taro.sh/your-agent", color: "text-brand", delay: 3.8 },
-  { text: "  Dashboard ready at https://taro.sh/your-agent/control", color: "text-brand", delay: 4.1 },
+  { text: "  Instance live at  https://taroagent.com/your-agent", color: "text-brand", delay: 3.8 },
+  { text: "  Dashboard ready at https://taroagent.com/your-agent/control", color: "text-brand", delay: 4.1 },
 ];
 
 interface TerminalDemoProps {

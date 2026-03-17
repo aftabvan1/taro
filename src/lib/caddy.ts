@@ -28,7 +28,7 @@ export const addRoute = async (
 ) => {
   validateSubdomain(subdomain);
   const conn = await getSSHConnection();
-  const baseDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const baseDomain = process.env.INSTANCE_DOMAIN || "instances.taroagent.com";
 
   const block = `
 # --- ${subdomain} ---

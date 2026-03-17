@@ -108,7 +108,7 @@ interface NavItem {
 }
 
 function buildNavItems(instance?: Instance | null): NavItem[] {
-  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh";
+  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taroagent.com";
   const webChatUrl = instance?.name
     ? `https://${instance.name}.${instanceDomain}`
     : undefined;

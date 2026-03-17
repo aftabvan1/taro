@@ -163,7 +163,7 @@ function HeroOrbitDeck() {
                 &nbsp; Starting Mission Control...
               </div>
               <div className="mt-1 text-brand">
-                &nbsp; ✓ Instance live — taro.sh/your-agent
+                &nbsp; ✓ Instance live — taroagent.com/your-agent
               </div>
               <div className="text-brand">
                 &nbsp; ✓ Dashboard ready

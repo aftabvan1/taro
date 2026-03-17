@@ -37,7 +37,7 @@ Hetzner Server (Docker + Caddy)
   |     - alpine/openclaw (AI agent)
   |     - tsl0922/ttyd (web terminal)
   |     - postgres:16-alpine (MC database)
-  |-- Caddy reverse proxy (*.instances.taro.sh)
+  |-- Caddy reverse proxy (*.instances.taroagent.com)
 ```
 
 ## Getting Started

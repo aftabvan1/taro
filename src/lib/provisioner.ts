@@ -155,7 +155,7 @@ export const provisionInstance = async (
   await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config`);
 
   // Write OpenClaw config with token-based auth
-  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taroagent.com";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const openclawConfig = JSON.stringify({
     gateway: {
@@ -408,7 +408,7 @@ SYNCEOF`
     .limit(1);
   const termToken = instForToken?.terminalToken || randomBytes(32).toString("hex");
 
-  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taroagent.com";
   const openclawDomain = `${instanceName}.${instanceDomain}`;
   const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
   await conn.execCommand(

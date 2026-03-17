@@ -13,7 +13,7 @@ const terminalLines = [
   "▸ Building agent image…",
   "▸ Pushing to registry…",
   "▸ Provisioning cluster node…",
-  "✓ Agent live at agent.taro.sh",
+  "✓ Agent live at agent.taroagent.com",
   "$ taro status",
   "▸ Uptime 99.97% · 1.2k req/s",
   "✓ All systems nominal",

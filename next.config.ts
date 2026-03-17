@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.stripe.com wss://*.taro.sh wss://*.instances.taro.sh; frame-src https://*.stripe.com; img-src 'self' data: blob:; font-src 'self' data:;",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.stripe.com wss://*.taroagent.com wss://*.instances.taroagent.com; frame-src https://*.stripe.com; img-src 'self' data: blob:; font-src 'self' data:;",
           },
         ],
       },

@@ -74,7 +74,7 @@ export default function TerminalPage() {
   const hasTerminal =
     instance?.serverIp != null && instance?.ttydPort != null;
 
-  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh";
+  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taroagent.com";
   const ttydHost = hasTerminal
     ? `ttyd-${instance.name}.${instanceDomain}`
     : null;

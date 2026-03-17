@@ -387,7 +387,7 @@ export default function DashboardLayout({
               {/* Open OpenClaw web chat quick button */}
               {instance?.name && instance?.serverIp && (
                 <a
-                  href={`https://${instance.name}.${process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh"}`}
+                  href={`https://${instance.name}.${process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taroagent.com"}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-emerald-400 transition-colors hover:bg-emerald-500/20"

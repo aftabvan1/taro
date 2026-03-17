@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito, Geist_Mono, JetBrains_Mono, Fredoka } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${nunito.variable} ${fredoka.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased noise-bg`}
       >
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

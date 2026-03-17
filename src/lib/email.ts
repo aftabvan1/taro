@@ -9,7 +9,7 @@ const getResend = (): Resend => {
   return _resend;
 };
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "Taro <noreply@taro.sh>";
+const FROM_EMAIL = process.env.FROM_EMAIL || "Taro <noreply@taroagent.com>";
 
 export const sendWelcomeEmail = async (email: string, name: string) => {
   await getResend().emails.send({
