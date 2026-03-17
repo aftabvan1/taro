@@ -117,8 +117,6 @@ function HeroOrbitDeck() {
           </div>
 
           <div className="mt-6 flex items-center gap-4 font-mono text-xs text-foreground/30">
-            <span>No credit card</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-accent/40" />
             <span>Cancel anytime</span>
             <span className="h-1.5 w-1.5 rounded-full bg-accent/40" />
             <span>Live in 30 seconds</span>

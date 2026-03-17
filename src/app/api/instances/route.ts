@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { instances } from "@/lib/db/schema";
+import { instances, users } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { logActivity } from "@/lib/activity";
 import { provisionInstance } from "@/lib/provisioner";
@@ -62,6 +62,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, region } = parsed.data;
+
+    // Require active Stripe subscription before allowing instance creation
+    const [user] = await db
+      .select({
+        stripeSubscriptionId: users.stripeSubscriptionId,
+      })
+      .from(users)
+      .where(eq(users.id, auth.userId))
+      .limit(1);
+
+    if (!user?.stripeSubscriptionId) {
+      return NextResponse.json(
+        { error: "Active subscription required. Please subscribe before deploying an instance." },
+        { status: 402 }
+      );
+    }
 
     // Check for duplicate instance name for this user
     const existing = await db

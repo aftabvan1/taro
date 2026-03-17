@@ -29,7 +29,6 @@ export const CTASection = () => {
         </h2>
         <p className="mx-auto mt-4 max-w-md text-muted">
           Deploy, monitor, and manage — all from one dashboard.
-          No credit card required to get started.
         </p>
         <div className="mt-10 flex justify-center">
           <Button size="lg" href="/auth/register">

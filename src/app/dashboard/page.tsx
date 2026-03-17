@@ -247,7 +247,7 @@ function TasksBreakdownBar({ breakdown }: TasksBreakdownBarProps) {
 
 export default function DashboardOverview() {
   const router = useRouter();
-  const { instance, instances, loading, token, refreshInstances } =
+  const { instance, instances, loading, token, hasSubscription, refreshInstances } =
     useDashboard();
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -259,6 +259,9 @@ export default function DashboardOverview() {
   const [newRegion, setNewRegion] = useState("us-east");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  /* Subscription checkout state */
+  const [subscribing, setSubscribing] = useState(false);
 
   /* Instance actions state */
   const [syncing, setSyncing] = useState(false);
@@ -384,6 +387,31 @@ export default function DashboardOverview() {
     [token, newName, newRegion, refreshInstances]
   );
 
+  /* ---- Subscribe (redirect to Stripe checkout) ---- */
+  const handleSubscribe = useCallback(async () => {
+    if (!token) return;
+    try {
+      setSubscribing(true);
+      const res = await fetch("/api/billing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: "checkout" }),
+      });
+      if (!res.ok) throw new Error("Failed to create checkout session");
+      const data = await res.json();
+      if (data.data?.url) {
+        window.location.href = data.data.url;
+      }
+    } catch {
+      setCreateError("Failed to start checkout. Please try again.");
+    } finally {
+      setSubscribing(false);
+    }
+  }, [token]);
+
   /* ---- Loading state ---- */
   if (loading) {
     return (
@@ -399,8 +427,64 @@ export default function DashboardOverview() {
     );
   }
 
-  /* ---- No instances: create form ---- */
+  /* ---- No instances: paywall or create form ---- */
   if (!instances.length) {
+    // If user has no subscription, show paywall
+    if (!hasSubscription) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center gap-8 py-16"
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-500/[0.06] shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+              <Zap className="h-8 w-8 text-amber-400" />
+            </div>
+            <div className="text-center">
+              <h2 className="font-mono text-xl font-bold tracking-tight text-zinc-200">
+                SUBSCRIBE TO DEPLOY
+              </h2>
+              <p className="mt-1 font-mono text-xs text-zinc-500">
+                An active subscription is required to deploy your OpenClaw instance
+              </p>
+            </div>
+          </div>
+
+          <Panel className="w-full max-w-md" label="taro plan">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-3">
+                <div>
+                  <p className="font-mono text-sm font-bold text-zinc-200">Taro Hobby</p>
+                  <p className="font-mono text-[10px] text-zinc-500">
+                    1 instance &middot; terminal &middot; backups &middot; mission control
+                  </p>
+                </div>
+                <p className="font-mono text-lg font-bold text-emerald-400">$14<span className="text-xs text-zinc-500">/mo</span></p>
+              </div>
+
+              {createError && (
+                <div className="flex items-center gap-2 font-mono text-xs text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {createError}
+                </div>
+              )}
+
+              <button
+                onClick={handleSubscribe}
+                disabled={subscribing}
+                className="flex items-center justify-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-emerald-400 transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] disabled:opacity-40"
+              >
+                {subscribing && <Loader2 className="h-4 w-4 animate-spin" />}
+                SUBSCRIBE &amp; DEPLOY
+              </button>
+            </div>
+          </Panel>
+        </motion.div>
+      );
+    }
+
+    // User has subscription — show deploy form
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}

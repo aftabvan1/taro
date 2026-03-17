@@ -67,8 +67,6 @@ export const Hero = () => {
           variants={itemVariants}
           className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-xs text-muted/70"
         >
-          <span>No credit card</span>
-          <span className="hidden h-3 w-px bg-white/10 sm:block" />
           <span>Cancel anytime</span>
           <span className="hidden h-3 w-px bg-white/10 sm:block" />
           <span>30s deploy</span>

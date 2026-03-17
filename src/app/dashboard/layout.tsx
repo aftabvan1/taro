@@ -46,6 +46,7 @@ export interface DashboardContextType {
   instances: Instance[];
   loading: boolean;
   token: string | null;
+  hasSubscription: boolean;
   refreshInstances: () => Promise<void>;
 }
 
@@ -58,6 +59,7 @@ const DashboardContext = createContext<DashboardContextType>({
   instances: [],
   loading: true,
   token: null,
+  hasSubscription: false,
   refreshInstances: async () => {},
 });
 
@@ -157,6 +159,7 @@ export default function DashboardLayout({
   const [token, setToken] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [hasSubscription, setHasSubscription] = useState(false);
 
   const fetchInstances = useCallback(async (jwt: string) => {
     try {
@@ -205,6 +208,14 @@ export default function DashboardLayout({
     setAuthChecked(true);
     fetchInstances(jwt);
 
+    // Fetch subscription status
+    fetch("/api/billing", { headers: { Authorization: `Bearer ${jwt}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data?.hasSubscription) setHasSubscription(true);
+      })
+      .catch(() => {});
+
     // Try to get user email from token payload
     try {
       const payload = JSON.parse(atob(jwt.split(".")[1]));
@@ -236,7 +247,7 @@ export default function DashboardLayout({
 
   return (
     <DashboardContext.Provider
-      value={{ instance, instances, loading, token, refreshInstances }}
+      value={{ instance, instances, loading, token, hasSubscription, refreshInstances }}
     >
       <div className="flex h-screen overflow-hidden bg-[#0a0a0b]">
         <Sidebar
