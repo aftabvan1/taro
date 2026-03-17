@@ -23,6 +23,7 @@ import {
   Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
 import { useDashboard } from "../layout";
 
 /* ------------------------------------------------------------------ */
@@ -37,16 +38,6 @@ const itemVariants = {
     transition: { duration: 0.4, ease: "easeOut" as const },
   },
 };
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const statusConfig = {
   provisioning: {

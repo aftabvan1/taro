@@ -5,20 +5,10 @@ import { Section } from "@/components/ui/section";
 import { DynamicIcon } from "@/components/ui/icon-map";
 import { FEATURES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { landingContainer, landingItem } from "@/lib/animation-variants";
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
+const containerVariants = landingContainer;
+const itemVariants = landingItem;
 
 export const FeaturesGrid = () => {
   return (

@@ -35,6 +35,68 @@ if (!DATABASE_URL || !INSTANCE_ID || !SYNC_HTTP_PORT) {
 
 const sql = neon(DATABASE_URL);
 
+// ─── Provider config sync ────────────────────────────────────────────────────
+
+/**
+ * Read the user's chosen LLM provider/model from Taro DB and ensure the
+ * OpenClaw container's config matches. This way dispatched agent runs use
+ * whatever provider the user configured in Taro settings.
+ */
+let lastSyncedModel = null;
+
+async function syncProviderConfig() {
+  try {
+    const rows = await sql`
+      SELECT llm_provider, llm_model FROM instances WHERE id = ${INSTANCE_ID} LIMIT 1
+    `;
+    if (rows.length === 0) return;
+
+    const { llm_provider: provider, llm_model: model } = rows[0];
+    if (!provider || !model) return;
+
+    // Skip if we already synced this exact config
+    if (lastSyncedModel === model) return;
+
+    // Read current openclaw.json from container
+    let currentConfig = {};
+    try {
+      const { stdout } = await execFileAsync("docker", [
+        "exec", CONTAINER_NAME,
+        "cat", "/home/node/.openclaw/openclaw.json",
+      ], { timeout: 5000 });
+      currentConfig = JSON.parse(stdout.trim());
+    } catch {
+      // File doesn't exist or can't parse — will write fresh
+    }
+
+    // Check if the model is already set correctly
+    const currentModel = currentConfig?.agents?.defaults?.model?.primary;
+    if (currentModel === model) {
+      lastSyncedModel = model;
+      return;
+    }
+
+    // Update the config
+    if (!currentConfig.agents) currentConfig.agents = {};
+    if (!currentConfig.agents.defaults) currentConfig.agents.defaults = {};
+    currentConfig.agents.defaults.model = { primary: model };
+    if (!currentConfig.agents.defaults.models) currentConfig.agents.defaults.models = {};
+    currentConfig.agents.defaults.models[model] = {};
+
+    // Write back
+    const configJson = JSON.stringify(currentConfig, null, 2).replace(/'/g, "'\\''");
+    await execFileAsync("docker", [
+      "exec", CONTAINER_NAME,
+      "sh", "-c", `cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'\n${configJson}\nCFGEOF`,
+    ], { timeout: 5000 });
+
+    lastSyncedModel = model;
+    console.log(`[syncProviderConfig] Updated OpenClaw model to ${model}`);
+  } catch (err) {
+    console.error("[syncProviderConfig] Error:", err.message);
+  }
+}
+
 // ─── OpenClaw CLI bridge ────────────────────────────────────────────────────
 
 async function gatewayCallOnce(method, params = {}, timeoutMs = 30000) {
@@ -388,6 +450,7 @@ function startHttpServer() {
     // ── Send chat message to agent ──
     if (req.method === "POST" && path === "/openclaw/chat") {
       try {
+        await syncProviderConfig();
         const { message, sessionKey } = JSON.parse(await readBody(req));
         if (!message) {
           return jsonResponse(res, 400, { error: "Missing message" });
@@ -438,6 +501,9 @@ function startHttpServer() {
         lines.push("Complete this task. Summarize what you accomplished when done.");
 
         const prompt = lines.join("\n");
+
+        // Ensure OpenClaw is using the user's chosen provider/model
+        await syncProviderConfig();
 
         // Use openclaw agent CLI to run a full agent turn
         // Always use "main" — it's the only OpenClaw agent. MC agent names are for our tracking only.
@@ -514,6 +580,7 @@ function startHttpServer() {
     // ── Create agent with role ──
     if (req.method === "POST" && path === "/openclaw/agents/create") {
       try {
+        await syncProviderConfig();
         const { name, role, description } = JSON.parse(await readBody(req));
 
         if (!name) {
@@ -695,8 +762,12 @@ startHttpServer();
 // Start completion polling every 30 seconds
 setInterval(pollDispatchedTasks, 30000);
 
-// Initial connectivity check
+// Sync provider config every 60 seconds (picks up settings changes)
+setInterval(syncProviderConfig, 60000);
+
+// Initial provider config sync + connectivity check
 (async () => {
+  await syncProviderConfig();
   const health = await gatewayHealth();
   if (health?.ok) {
     console.log("OpenClaw gateway is reachable");

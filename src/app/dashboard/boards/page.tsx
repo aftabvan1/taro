@@ -25,6 +25,8 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { relativeTime, daysUntil } from "@/lib/format";
+import { dashboardContainer, dashboardItem } from "@/lib/animation-variants";
 import { useDashboard } from "../layout";
 import type { MCBoard, MCTask, MCAgent, MCTag } from "@/lib/mission-control/types";
 import {
@@ -42,50 +44,11 @@ import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 
 // ---------------------------------------------------------------------------
-// Animation variants
-// ---------------------------------------------------------------------------
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
-  },
-};
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function daysUntil(dateStr: string): string {
-  const now = new Date();
-  const due = new Date(dateStr);
-  const diff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return `${Math.abs(diff)}d overdue`;
-  if (diff === 0) return "Due today";
-  if (diff === 1) return "Due tomorrow";
-  return `${diff}d left`;
-}
+const containerVariants = dashboardContainer;
+const itemVariants = dashboardItem;
 
 const priorityConfig = {
   high: {

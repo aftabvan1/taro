@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { mcBoards, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
+import { validateBody } from "@/lib/api/helpers";
+import { updateBoardSchema } from "@/lib/validations/mission-control";
 
 async function validateBoardOwnership(boardId: string, userId: string) {
   const result = await db
@@ -29,10 +31,13 @@ export async function PATCH(
   }
 
   const body = await req.json();
+  const { data, error } = validateBody(updateBoardSchema, body);
+  if (error) return error;
+
   const updates: Record<string, unknown> = {};
 
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.description !== undefined) updates.description = body.description;
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.description !== undefined) updates.description = data.description;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

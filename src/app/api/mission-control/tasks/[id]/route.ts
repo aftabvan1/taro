@@ -4,6 +4,8 @@ import { mcTasks, mcBoards, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
 import { execSyncDaemon } from "@/lib/ssh-exec";
+import { validateBody } from "@/lib/api/helpers";
+import { updateTaskSchema } from "@/lib/validations/mission-control";
 
 async function validateTaskOwnership(taskId: string, userId: string) {
   const result = await db
@@ -31,16 +33,19 @@ export async function PATCH(
   }
 
   const body = await req.json();
+  const { data, error } = validateBody(updateTaskSchema, body);
+  if (error) return error;
+
   const updates: Record<string, unknown> = {};
 
-  if (body.status !== undefined) updates.status = body.status;
-  if (body.priority !== undefined) updates.priority = body.priority;
-  if (body.assignee !== undefined) updates.assignee = body.assignee;
-  if (body.title !== undefined) updates.title = body.title;
-  if (body.description !== undefined) updates.description = body.description;
-  if (body.agent_name !== undefined) updates.agentName = body.agent_name;
-  if (body.due_date !== undefined)
-    updates.dueDate = body.due_date ? new Date(body.due_date) : null;
+  if (data.status !== undefined) updates.status = data.status;
+  if (data.priority !== undefined) updates.priority = data.priority;
+  if (data.assignee !== undefined) updates.assignee = data.assignee;
+  if (data.title !== undefined) updates.title = data.title;
+  if (data.description !== undefined) updates.description = data.description;
+  if (data.agent_name !== undefined) updates.agentName = data.agent_name;
+  if (data.due_date !== undefined)
+    updates.dueDate = data.due_date ? new Date(data.due_date) : null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -54,7 +59,7 @@ export async function PATCH(
 
   // Auto-dispatch: if status changed to in_progress and task has an agent assigned
   if (
-    body.status === "in_progress" &&
+    data.status === "in_progress" &&
     updated.agentName &&
     owned.instance.mcPort
   ) {

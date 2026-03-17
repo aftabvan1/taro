@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { backups, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -47,7 +48,7 @@ export async function POST(
 
     return NextResponse.json({ message: "Backup restored successfully" });
   } catch (error) {
-    console.error("Restore backup error:", error);
+    logger.error("Restore backup error:", error);
     return NextResponse.json(
       { error: "Failed to restore backup" },
       { status: 500 }

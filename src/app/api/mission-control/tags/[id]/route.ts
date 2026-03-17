@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { mcTags, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
+import { getUserInstance, noInstanceResponse, validateBody } from "@/lib/api/helpers";
+import { updateTagSchema } from "@/lib/validations/mission-control";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,15 +14,22 @@ export async function PATCH(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
   const body = await req.json();
+  const { data, error } = validateBody(updateTagSchema, body);
+  if (error) return error;
+
   const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.color !== undefined) updates.color = body.color;
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.color !== undefined) updates.color = data.color;
 
   const [updated] = await db
     .update(mcTags)
     .set(updates)
-    .where(eq(mcTags.id, id))
+    .where(and(eq(mcTags.id, id), eq(mcTags.instanceId, instance.id)))
     .returning();
 
   if (!updated) {
@@ -43,6 +52,21 @@ export async function DELETE(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
+  // Verify the tag belongs to the user's instance
+  const [tag] = await db
+    .select()
+    .from(mcTags)
+    .where(and(eq(mcTags.id, id), eq(mcTags.instanceId, instance.id)))
+    .limit(1);
+
+  if (!tag) {
+    return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+  }
+
   await db.delete(mcTags).where(eq(mcTags.id, id));
   return NextResponse.json({ success: true });
 }

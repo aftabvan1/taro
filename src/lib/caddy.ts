@@ -12,10 +12,21 @@ const getSSHConnection = async () => {
   return ssh;
 };
 
+const SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function validateSubdomain(subdomain: string) {
+  if (!SUBDOMAIN_REGEX.test(subdomain)) {
+    throw new Error(
+      "Invalid subdomain: must be lowercase alphanumeric with optional hyphens"
+    );
+  }
+}
+
 export const addRoute = async (
   subdomain: string,
   ports: { openclaw: number; ttyd: number; mc: number }
 ) => {
+  validateSubdomain(subdomain);
   const conn = await getSSHConnection();
   const baseDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
 
@@ -46,6 +57,7 @@ CADDYEOF`
 };
 
 export const removeRoute = async (subdomain: string) => {
+  validateSubdomain(subdomain);
   const conn = await getSSHConnection();
 
   // Remove the block between the markers

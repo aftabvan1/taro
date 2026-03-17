@@ -1,0 +1,2 @@
+ALTER TABLE "instances" ADD COLUMN "llm_provider" text DEFAULT 'openai-codex' NOT NULL;--> statement-breakpoint
+ALTER TABLE "instances" ADD COLUMN "llm_model" text DEFAULT 'openai-codex/gpt-5.4' NOT NULL;

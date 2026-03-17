@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { activityLogs, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: logs });
   } catch (error) {
-    console.error("Activity log error:", error);
+    logger.error("Activity log error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

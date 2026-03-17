@@ -4,20 +4,10 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { landingHeroContainer, landingHeroItem } from "@/lib/animation-variants";
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease: "easeOut" as const },
-  },
-};
+const containerVariants = landingHeroContainer;
+const itemVariants = landingHeroItem;
 
 export const Hero = () => {
   return (

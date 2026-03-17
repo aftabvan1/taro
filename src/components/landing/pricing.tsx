@@ -6,11 +6,9 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { landingHeroContainer } from "@/lib/animation-variants";
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
-};
+const containerVariants = landingHeroContainer;
 
 const itemVariants = {
   hidden: { opacity: 0, y: 24 },

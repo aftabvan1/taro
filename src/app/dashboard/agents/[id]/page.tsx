@@ -21,6 +21,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/format";
+import { agentStatusConfig, taskStatusColors } from "@/lib/status-config";
 import { useDashboard } from "../../layout";
 import type { OpenClawTranscriptMessage } from "@/lib/mission-control/types";
 
@@ -53,48 +55,7 @@ interface AgentDetail {
   }[];
 }
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-const statusConfig = {
-  active: {
-    label: "ACTIVE",
-    dot: "bg-emerald-500",
-    text: "text-emerald-400",
-    bg: "bg-emerald-500/10 border-emerald-500/20",
-  },
-  pending: {
-    label: "PENDING",
-    dot: "bg-amber-500",
-    text: "text-amber-400",
-    bg: "bg-amber-500/10 border-amber-500/20",
-  },
-  stopped: {
-    label: "STOPPED",
-    dot: "bg-zinc-600",
-    text: "text-zinc-500",
-    bg: "bg-zinc-500/10 border-zinc-500/20",
-  },
-} as const;
-
-const taskStatusColors: Record<string, string> = {
-  inbox: "text-amber-400",
-  todo: "text-zinc-400",
-  in_progress: "text-blue-400",
-  review: "text-purple-400",
-  done: "text-emerald-400",
-};
+const statusConfig = agentStatusConfig;
 
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();

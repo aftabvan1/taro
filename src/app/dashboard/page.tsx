@@ -27,6 +27,8 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/format";
+import { dashboardContainer, dashboardItemBlur } from "@/lib/animation-variants";
 import { useDashboard } from "./layout";
 import { ConnectionStatus } from "@/components/dashboard/connection-status";
 
@@ -73,27 +75,11 @@ interface DashboardData {
 }
 
 // ---------------------------------------------------------------------------
-// Animation variants
-// ---------------------------------------------------------------------------
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20, filter: "blur(4px)" },
-  visible: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const containerVariants = dashboardContainer;
+const itemVariants = dashboardItemBlur;
 
 const activityIcon: Record<string, React.ReactNode> = {
   deploy: <Rocket className="h-3.5 w-3.5 text-emerald-400" />,
@@ -105,19 +91,6 @@ const activityIcon: Record<string, React.ReactNode> = {
   approval: <Shield className="h-3.5 w-3.5 text-emerald-400" />,
   error: <XCircle className="h-3.5 w-3.5 text-red-400" />,
 };
-
-function relativeTime(dateStr: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(dateStr).getTime()) / 1000
-  );
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 // ---------------------------------------------------------------------------
 // Panel card

@@ -9,6 +9,8 @@ import {
 } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and, desc } from "drizzle-orm";
+import { validateBody } from "@/lib/api/helpers";
+import { updateAgentSchema } from "@/lib/validations/mission-control";
 
 async function validateAgentOwnership(agentId: string, userId: string) {
   const result = await db
@@ -117,11 +119,14 @@ export async function PATCH(
   }
 
   const body = await req.json();
+  const { data, error } = validateBody(updateAgentSchema, body);
+  if (error) return error;
+
   const updates: Record<string, unknown> = {};
 
-  if (body.role !== undefined) updates.role = body.role;
-  if (body.description !== undefined) updates.description = body.description;
-  if (body.name !== undefined) updates.name = body.name;
+  if (data.role !== undefined) updates.role = data.role;
+  if (data.description !== undefined) updates.description = data.description;
+  if (data.name !== undefined) updates.name = data.name;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

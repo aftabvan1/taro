@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { mcTasks, mcTaskTags, mcTags, mcBoards, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and, inArray } from "drizzle-orm";
+import { validateBody } from "@/lib/api/helpers";
+import { createTaskSchema } from "@/lib/validations/mission-control";
 
 async function validateBoardOwnership(boardId: string, userId: string) {
   const result = await db
@@ -94,22 +96,20 @@ export async function POST(
   }
 
   const body = await req.json();
-
-  if (!body.title || typeof body.title !== "string") {
-    return NextResponse.json({ error: "Title is required" }, { status: 400 });
-  }
+  const { data, error } = validateBody(createTaskSchema, body);
+  if (error) return error;
 
   const [task] = await db
     .insert(mcTasks)
     .values({
       boardId,
-      title: body.title,
-      description: body.description ?? "",
-      status: body.status ?? "inbox",
-      agentName: body.agent_name ?? "",
-      priority: body.priority ?? "medium",
-      assignee: body.assignee ?? null,
-      dueDate: body.due_date ? new Date(body.due_date) : null,
+      title: data.title,
+      description: data.description ?? "",
+      status: data.status ?? "inbox",
+      agentName: data.agent_name ?? "",
+      priority: data.priority ?? "medium",
+      assignee: data.assignee ?? null,
+      dueDate: data.due_date ? new Date(data.due_date) : null,
     })
     .returning();
 

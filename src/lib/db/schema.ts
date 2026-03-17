@@ -70,6 +70,8 @@ export const instances = pgTable("instances", {
   hetznerServerId: text("hetzner_server_id"),
   containerName: text("container_name"),
   mcAuthToken: text("mc_auth_token"),
+  llmProvider: text("llm_provider").notNull().default("openai-codex"),
+  llmModel: text("llm_model").notNull().default("openai-codex/gpt-5.4"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

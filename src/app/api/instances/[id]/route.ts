@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -31,7 +32,7 @@ export async function GET(
 
     return NextResponse.json({ data: instance });
   } catch (error) {
-    console.error("Get instance error:", error);
+    logger.error("Get instance error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -51,11 +52,22 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name } = body;
+    const updates: Record<string, unknown> = {};
+
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.llmProvider !== undefined) updates.llmProvider = body.llmProvider;
+    if (body.llmModel !== undefined) updates.llmModel = body.llmModel;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No fields to update" },
+        { status: 400 }
+      );
+    }
 
     const [instance] = await db
       .update(instances)
-      .set({ name })
+      .set(updates)
       .where(and(eq(instances.id, id), eq(instances.userId, auth.userId)))
       .returning();
 
@@ -68,7 +80,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: instance });
   } catch (error) {
-    console.error("Update instance error:", error);
+    logger.error("Update instance error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -114,7 +126,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Instance deleted" });
   } catch (error) {
-    console.error("Delete instance error:", error);
+    logger.error("Delete instance error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

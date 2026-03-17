@@ -4,6 +4,7 @@ import { instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
 import { seedInstanceData } from "@/lib/seed-instance";
+import { logger } from "@/lib/logger";
 
 const ssh = new NodeSSH();
 
@@ -54,7 +55,7 @@ export const deploySyncDaemon = async (
   // Install Node.js on host if not present
   const nodeCheck = await conn.execCommand("which node");
   if (nodeCheck.code !== 0) {
-    console.log("[deploySyncDaemon] Node.js not found, installing...");
+    logger.info("[deploySyncDaemon] Node.js not found, installing...");
     await conn.execCommand(
       "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs"
     );
@@ -111,7 +112,7 @@ SYNCSERVEOF
 systemctl daemon-reload && systemctl enable taro-sync-${instanceName} && systemctl start taro-sync-${instanceName}`
   );
 
-  console.log(`[deploySyncDaemon] Sync daemon deployed for ${instanceName} on port ${mcPort}`);
+  logger.info(`[deploySyncDaemon] Sync daemon deployed for ${instanceName} on port ${mcPort}`);
 };
 
 export const provisionInstance = async (

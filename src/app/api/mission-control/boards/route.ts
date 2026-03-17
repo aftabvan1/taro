@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { mcBoards, mcTasks, instances } from "@/lib/db/schema";
+import { mcBoards, mcTasks } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, sql } from "drizzle-orm";
+import { getUserInstance, noInstanceResponse, validateBody } from "@/lib/api/helpers";
+import { createBoardSchema } from "@/lib/validations/mission-control";
 
 export async function GET(req: NextRequest) {
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
-  const [instance] = await db
-    .select()
-    .from(instances)
-    .where(eq(instances.userId, auth.userId))
-    .limit(1);
-
+  const instance = await getUserInstance(auth.userId);
   if (!instance) {
     return NextResponse.json([]);
   }
@@ -46,24 +43,19 @@ export async function POST(req: NextRequest) {
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
-  const [instance] = await db
-    .select()
-    .from(instances)
-    .where(eq(instances.userId, auth.userId))
-    .limit(1);
-
-  if (!instance) {
-    return NextResponse.json({ error: "No instance found" }, { status: 404 });
-  }
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
 
   const body = await req.json();
+  const { data, error } = validateBody(createBoardSchema, body);
+  if (error) return error;
 
   const [board] = await db
     .insert(mcBoards)
     .values({
       instanceId: instance.id,
-      name: body.name,
-      description: body.description ?? "",
+      name: data.name,
+      description: data.description ?? "",
     })
     .returning();
 

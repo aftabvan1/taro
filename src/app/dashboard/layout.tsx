@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { instanceStatusConfig } from "@/lib/status-config";
 import { Sidebar } from "@/components/dashboard/sidebar";
 
 // ---------------------------------------------------------------------------
@@ -95,36 +96,7 @@ function getPageLabel(pathname: string): string {
   return match ? routeLabels[match] : "Dashboard";
 }
 
-const statusConfig = {
-  running: {
-    dot: "bg-emerald-500",
-    bg: "bg-emerald-500/10 border-emerald-500/20",
-    text: "text-emerald-400",
-    label: "ONLINE",
-    glow: "shadow-[0_0_8px_rgba(16,185,129,0.3)]",
-  },
-  provisioning: {
-    dot: "bg-amber-500",
-    bg: "bg-amber-500/10 border-amber-500/20",
-    text: "text-amber-400",
-    label: "BOOTING",
-    glow: "shadow-[0_0_8px_rgba(245,158,11,0.3)]",
-  },
-  stopped: {
-    dot: "bg-zinc-600",
-    bg: "bg-zinc-500/10 border-zinc-500/20",
-    text: "text-zinc-500",
-    label: "OFFLINE",
-    glow: "",
-  },
-  error: {
-    dot: "bg-red-500",
-    bg: "bg-red-500/10 border-red-500/20",
-    text: "text-red-400",
-    label: "FAULT",
-    glow: "shadow-[0_0_8px_rgba(239,68,68,0.3)]",
-  },
-};
+const statusConfig = instanceStatusConfig;
 
 // ---------------------------------------------------------------------------
 // Skeleton loader

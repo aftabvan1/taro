@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -40,7 +41,7 @@ export async function GET(
 
     return NextResponse.json({ data: stats });
   } catch (error) {
-    console.error("Stats error:", error);
+    logger.error("Stats error:", error);
     return NextResponse.json(
       { error: "Failed to fetch instance stats" },
       { status: 500 }

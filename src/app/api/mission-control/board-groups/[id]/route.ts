@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { mcBoardGroups } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getUserInstance, noInstanceResponse, validateBody } from "@/lib/api/helpers";
+import { updateBoardGroupSchema } from "@/lib/validations/mission-control";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,12 +14,18 @@ export async function PATCH(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
   const body = await req.json();
+  const { data, error } = validateBody(updateBoardGroupSchema, body);
+  if (error) return error;
 
   const [updated] = await db
     .update(mcBoardGroups)
-    .set({ name: body.name })
-    .where(eq(mcBoardGroups.id, id))
+    .set({ name: data.name })
+    .where(and(eq(mcBoardGroups.id, id), eq(mcBoardGroups.instanceId, instance.id)))
     .returning();
 
   if (!updated) {
@@ -39,6 +47,21 @@ export async function DELETE(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
+  // Verify the board group belongs to the user's instance
+  const [group] = await db
+    .select()
+    .from(mcBoardGroups)
+    .where(and(eq(mcBoardGroups.id, id), eq(mcBoardGroups.instanceId, instance.id)))
+    .limit(1);
+
+  if (!group) {
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  }
+
   await db.delete(mcBoardGroups).where(eq(mcBoardGroups.id, id));
   return NextResponse.json({ success: true });
 }

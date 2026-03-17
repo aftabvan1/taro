@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -59,7 +60,7 @@ export async function POST(
     });
   } catch (err) {
     ssh.dispose();
-    console.error("[deploy-sync] Failed:", (err as Error).message);
+    logger.error("[deploy-sync] Failed:", (err as Error).message);
     return NextResponse.json(
       { error: `Failed to deploy sync daemon: ${(err as Error).message}` },
       { status: 500 }

@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { mcAgents, instances } from "@/lib/db/schema";
+import { mcAgents } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq } from "drizzle-orm";
 import { execSyncDaemon } from "@/lib/ssh-exec";
+import { getUserInstance, noInstanceResponse, validateBody } from "@/lib/api/helpers";
+import { createAgentSchema } from "@/lib/validations/mission-control";
 
 export async function GET(req: NextRequest) {
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
-  const [instance] = await db
-    .select()
-    .from(instances)
-    .where(eq(instances.userId, auth.userId))
-    .limit(1);
-
+  const instance = await getUserInstance(auth.userId);
   if (!instance) {
     return NextResponse.json([]);
   }
@@ -44,26 +41,21 @@ export async function POST(req: NextRequest) {
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
-  const [instance] = await db
-    .select()
-    .from(instances)
-    .where(eq(instances.userId, auth.userId))
-    .limit(1);
-
-  if (!instance) {
-    return NextResponse.json({ error: "No instance found" }, { status: 404 });
-  }
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
 
   const body = await req.json();
+  const { data, error } = validateBody(createAgentSchema, body);
+  if (error) return error;
 
   const [agent] = await db
     .insert(mcAgents)
     .values({
       instanceId: instance.id,
-      name: body.name,
-      role: body.role ?? "",
-      description: body.description ?? "",
-      status: body.status ?? "pending",
+      name: data.name,
+      role: data.role ?? "",
+      description: data.description ?? "",
+      status: data.status ?? "pending",
     })
     .returning();
 
@@ -75,9 +67,9 @@ export async function POST(req: NextRequest) {
         method: "POST",
         path: "/openclaw/agents/create",
         body: {
-          name: body.name,
-          role: body.role ?? "",
-          description: body.description ?? "",
+          name: data.name,
+          role: data.role ?? "",
+          description: data.description ?? "",
         },
       });
 

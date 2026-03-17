@@ -116,7 +116,7 @@ function buildNavItems(): NavItem[] {
 
     // TOOLS
     { label: "Terminal", icon: Terminal, href: "/dashboard/terminal", section: "Tools" },
-    { label: "Marketplace", icon: Plug, href: "/dashboard/integrations", section: "Tools" },
+    { label: "Integrations", icon: Plug, href: "/dashboard/integrations", section: "Tools" },
 
     // SYSTEM
     { label: "Backups", icon: HardDrive, href: "/dashboard/backups", section: "System" },

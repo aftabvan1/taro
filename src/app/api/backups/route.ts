@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { backups, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: userBackups });
   } catch (error) {
-    console.error("List backups error:", error);
+    logger.error("List backups error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Create backup error:", error);
+    logger.error("Create backup error:", error);
     return NextResponse.json(
       { error: "Failed to create backup" },
       { status: 500 }

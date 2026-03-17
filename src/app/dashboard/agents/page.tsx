@@ -25,66 +25,20 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { relativeTime } from "@/lib/format";
+import { dashboardContainer, dashboardItem } from "@/lib/animation-variants";
+import { agentStatusConfig } from "@/lib/status-config";
 import { useDashboard } from "../layout";
 import { ConnectionStatus } from "@/components/dashboard/connection-status";
 import type { MCAgent, OpenClawSession } from "@/lib/mission-control/types";
 
 // ---------------------------------------------------------------------------
-// Animation variants
-// ---------------------------------------------------------------------------
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
-  },
-};
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-const statusConfig = {
-  active: {
-    label: "ACTIVE",
-    dot: "bg-emerald-500",
-    text: "text-emerald-400",
-    bg: "bg-emerald-500/10 border-emerald-500/20",
-  },
-  pending: {
-    label: "PENDING",
-    dot: "bg-amber-500",
-    text: "text-amber-400",
-    bg: "bg-amber-500/10 border-amber-500/20",
-  },
-  stopped: {
-    label: "STOPPED",
-    dot: "bg-zinc-600",
-    text: "text-zinc-500",
-    bg: "bg-zinc-500/10 border-zinc-500/20",
-  },
-} as const;
+const containerVariants = dashboardContainer;
+const itemVariants = dashboardItem;
+const statusConfig = agentStatusConfig;
 
 // ---------------------------------------------------------------------------
 // Command prompt component

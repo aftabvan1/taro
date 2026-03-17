@@ -2,6 +2,7 @@ import { NodeSSH } from "node-ssh";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { logger } from "@/lib/logger";
 
 /**
  * Execute an HTTP request against the sync daemon running on the Hetzner server
@@ -80,7 +81,7 @@ export async function execSyncDaemon(
     ]);
 
     if (result.code !== 0) {
-      console.error(`[execSyncDaemon] SSH command failed on port ${mcPort}${options.path}:`, result.stderr);
+      logger.error(`[execSyncDaemon] SSH command failed on port ${mcPort}${options.path}:`, result.stderr);
       return {
         ok: false,
         status: 502,
@@ -106,7 +107,7 @@ export async function execSyncDaemon(
       data,
     };
   } catch (err) {
-    console.error(`[execSyncDaemon] SSH error for port ${mcPort}${options.path}:`, (err as Error).message);
+    logger.error(`[execSyncDaemon] SSH error for port ${mcPort}${options.path}:`, (err as Error).message);
     return {
       ok: false,
       status: 502,

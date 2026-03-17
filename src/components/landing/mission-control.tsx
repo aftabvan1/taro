@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { landingItem } from "@/lib/animation-variants";
 import {
   LayoutDashboard,
   Bot,
@@ -73,14 +74,7 @@ const MC_FEATURES = [
   },
 ];
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
+const itemVariants = landingItem;
 
 export const MissionControl = () => {
   return (

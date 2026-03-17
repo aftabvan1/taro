@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { mcCustomFields } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getUserInstance, noInstanceResponse, validateBody } from "@/lib/api/helpers";
+import { updateCustomFieldSchema } from "@/lib/validations/mission-control";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,16 +14,23 @@ export async function PATCH(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
   const body = await req.json();
+  const { data, error } = validateBody(updateCustomFieldSchema, body);
+  if (error) return error;
+
   const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.field_type !== undefined) updates.fieldType = body.field_type;
-  if (body.options !== undefined) updates.options = body.options;
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.field_type !== undefined) updates.fieldType = data.field_type;
+  if (data.options !== undefined) updates.options = data.options;
 
   const [updated] = await db
     .update(mcCustomFields)
     .set(updates)
-    .where(eq(mcCustomFields.id, id))
+    .where(and(eq(mcCustomFields.id, id), eq(mcCustomFields.instanceId, instance.id)))
     .returning();
 
   if (!updated) {
@@ -45,6 +54,21 @@ export async function DELETE(
   if (!isAuthenticated(auth)) return auth;
 
   const { id } = await params;
+
+  const instance = await getUserInstance(auth.userId);
+  if (!instance) return noInstanceResponse();
+
+  // Verify the custom field belongs to the user's instance
+  const [field] = await db
+    .select()
+    .from(mcCustomFields)
+    .where(and(eq(mcCustomFields.id, id), eq(mcCustomFields.instanceId, instance.id)))
+    .limit(1);
+
+  if (!field) {
+    return NextResponse.json({ error: "Field not found" }, { status: 404 });
+  }
+
   await db.delete(mcCustomFields).where(eq(mcCustomFields.id, id));
   return NextResponse.json({ success: true });
 }

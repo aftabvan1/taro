@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Plug,
@@ -11,72 +13,36 @@ import {
   CreditCard,
   Calendar,
   Puzzle,
-  Sparkles,
+  Check,
+  MessageSquare,
+  Search,
+  X,
+  type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
+import type { ComposioToolkit, ComposioConnectedAccount } from "@/lib/composio/types";
 
 /* ------------------------------------------------------------------ */
-/*  Types & Data                                                       */
+/*  Icon map for known toolkits                                        */
 /* ------------------------------------------------------------------ */
 
-interface Integration {
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  category: string;
+const ICON_MAP: Record<string, LucideIcon> = {
+  github: GitBranch,
+  gmail: Mail,
+  "google-drive": FolderOpen,
+  googledrive: FolderOpen,
+  slack: MessageSquare,
+  notion: FileText,
+  linear: SquareKanban,
+  stripe: CreditCard,
+  "google-calendar": Calendar,
+  googlecalendar: Calendar,
+  calendar: Calendar,
+};
+
+function getIcon(slug: string): LucideIcon {
+  return ICON_MAP[slug.toLowerCase()] || Plug;
 }
-
-const INTEGRATIONS: Integration[] = [
-  {
-    name: "Slack",
-    description: "Send messages, manage channels",
-    icon: <Plug className="h-5 w-5" />,
-    category: "Communication",
-  },
-  {
-    name: "GitHub",
-    description: "Manage repos, PRs, issues",
-    icon: <GitBranch className="h-5 w-5" />,
-    category: "Development",
-  },
-  {
-    name: "Google Drive",
-    description: "Read and write files",
-    icon: <FolderOpen className="h-5 w-5" />,
-    category: "Storage",
-  },
-  {
-    name: "Gmail",
-    description: "Send and read emails",
-    icon: <Mail className="h-5 w-5" />,
-    category: "Communication",
-  },
-  {
-    name: "Notion",
-    description: "Manage pages and databases",
-    icon: <FileText className="h-5 w-5" />,
-    category: "Productivity",
-  },
-  {
-    name: "Linear",
-    description: "Track issues and projects",
-    icon: <SquareKanban className="h-5 w-5" />,
-    category: "Project Management",
-  },
-  {
-    name: "Stripe",
-    description: "Manage payments and subscriptions",
-    icon: <CreditCard className="h-5 w-5" />,
-    category: "Finance",
-  },
-  {
-    name: "Calendar",
-    description: "Schedule and manage events",
-    icon: <Calendar className="h-5 w-5" />,
-    category: "Productivity",
-  },
-];
 
 /* ------------------------------------------------------------------ */
 /*  Animation variants                                                 */
@@ -84,7 +50,7 @@ const INTEGRATIONS: Integration[] = [
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
+  visible: { transition: { staggerChildren: 0.04 } },
 };
 
 const itemVariants = {
@@ -113,11 +79,73 @@ function ScanlineOverlay() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Skeleton card                                                      */
+/* ------------------------------------------------------------------ */
+
+function SkeletonCard() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-5">
+      <div className="mb-4 h-10 w-10 animate-pulse rounded-xl bg-white/[0.04]" />
+      <div className="mb-2 h-4 w-24 animate-pulse rounded bg-white/[0.04]" />
+      <div className="mb-3 h-3 w-36 animate-pulse rounded bg-white/[0.04]" />
+      <div className="h-3 w-16 animate-pulse rounded bg-white/[0.04]" />
+      <div className="mt-4 h-9 w-full animate-pulse rounded-lg bg-white/[0.04]" />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function IntegrationsPage() {
-  useDashboard();
+  const { token } = useDashboard();
+  const router = useRouter();
+
+  const [toolkits, setToolkits] = useState<ComposioToolkit[]>([]);
+  const [connectedAccounts, setConnectedAccounts] = useState<
+    ComposioConnectedAccount[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const headers = token
+    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    : undefined;
+
+  const fetchData = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [toolkitsRes, connectedRes] = await Promise.all([
+        fetch("/api/integrations", { headers }),
+        fetch("/api/integrations/connected", { headers }),
+      ]);
+
+      const toolkitsData = await toolkitsRes.json();
+      const connectedData = await connectedRes.json();
+
+      if (toolkitsData.data) setToolkits(toolkitsData.data);
+      if (connectedData.data) setConnectedAccounts(connectedData.data);
+    } catch {
+      setError("Failed to load integrations");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const isConnected = (slug: string) =>
+    connectedAccounts.some(
+      (a) => a.toolkitSlug === slug && a.status === "active"
+    );
+
+  const connectedCount = connectedAccounts.filter(
+    (a) => a.status === "active"
+  ).length;
 
   return (
     <motion.div
@@ -138,9 +166,22 @@ export default function IntegrationsPage() {
           </span>
         </div>
         <p className="mt-2 max-w-lg text-sm text-zinc-500">
-          Connect your AI agent to 850+ tools via Composio. Enable integrations
+          Connect your AI agent to 1000+ tools via Composio. Enable integrations
           to extend your agent&apos;s capabilities across platforms.
         </p>
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/10 bg-emerald-500/5 px-3 py-2 max-w-lg">
+          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+          <p className="text-xs text-zinc-400">
+            To connect an integration, ask your agent in the{" "}
+            <button
+              onClick={() => router.push("/dashboard/terminal")}
+              className="text-emerald-400 underline underline-offset-2 hover:text-emerald-300"
+            >
+              webchat
+            </button>
+            . It will guide you through the setup process.
+          </p>
+        </div>
       </motion.div>
 
       {/* Stats bar */}
@@ -151,66 +192,137 @@ export default function IntegrationsPage() {
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
           <span className="font-mono text-xs text-zinc-500">
-            AVAILABLE: {INTEGRATIONS.length}
+            AVAILABLE: {loading ? "..." : toolkits.length}
           </span>
         </div>
         <span className="font-mono text-xs text-zinc-700">|</span>
-        <span className="font-mono text-xs text-zinc-500">CONNECTED: 0</span>
+        <span className="font-mono text-xs text-zinc-500">
+          CONNECTED: {loading ? "..." : connectedCount}
+        </span>
         <span className="font-mono text-xs text-zinc-700">|</span>
         <span className="font-mono text-xs text-zinc-600">
-          TOTAL ECOSYSTEM: 850+
+          TOTAL ECOSYSTEM: 1000+
         </span>
       </motion.div>
 
-      {/* Integration grid */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        {INTEGRATIONS.map((integration) => (
-          <motion.div
-            key={integration.name}
-            variants={itemVariants}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-5 transition-all duration-300 hover:border-emerald-500/15"
+      {/* Search bar */}
+      <motion.div variants={itemVariants} className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search integrations..."
+          className="w-full rounded-xl border border-white/[0.06] bg-[#0a0a0b] py-3 pl-11 pr-10 font-mono text-sm text-zinc-300 placeholder-zinc-600 outline-none transition-colors focus:border-emerald-500/30"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
           >
-            <ScanlineOverlay />
-
-            <div className="relative z-10">
-              {/* Icon */}
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 transition-colors group-hover:border-emerald-500/20 group-hover:bg-emerald-500/5 group-hover:text-emerald-400">
-                {integration.icon}
-              </div>
-
-              {/* Name & description */}
-              <h3 className="text-sm font-semibold">{integration.name}</h3>
-              <p className="mt-1 text-xs text-zinc-500">
-                {integration.description}
-              </p>
-
-              {/* Category tag */}
-              <span className="mt-3 inline-block font-mono text-[10px] text-zinc-700">
-                {integration.category.toUpperCase()}
-              </span>
-
-              {/* Connect button */}
-              <button
-                disabled
-                className={cn(
-                  "mt-4 w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 font-mono text-[10px] font-medium text-zinc-600 transition-colors",
-                  "disabled:cursor-not-allowed",
-                )}
-              >
-                <span className="flex items-center justify-center gap-1.5">
-                  <Sparkles className="h-3 w-3" />
-                  COMING SOON
-                </span>
-              </button>
-            </div>
-          </motion.div>
-        ))}
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </motion.div>
+
+      {/* Error state */}
+      {error && (
+        <motion.div
+          variants={itemVariants}
+          className="rounded-xl border border-red-500/20 bg-red-500/5 px-5 py-3"
+        >
+          <p className="font-mono text-xs text-red-400">{error}</p>
+        </motion.div>
+      )}
+
+      {/* Integration grid */}
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {toolkits
+          .filter((t) => {
+            if (!search) return true;
+            const q = search.toLowerCase();
+            return (
+              t.name.toLowerCase().includes(q) ||
+              t.slug.toLowerCase().includes(q) ||
+              t.category.toLowerCase().includes(q) ||
+              t.description.toLowerCase().includes(q)
+            );
+          })
+          .map((toolkit) => {
+            const Icon = getIcon(toolkit.slug);
+            const connected = isConnected(toolkit.slug);
+
+            return (
+              <motion.div
+                key={toolkit.slug}
+                variants={itemVariants}
+                className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-5 transition-all duration-300 hover:border-emerald-500/15"
+              >
+                <ScanlineOverlay />
+
+                <div className="relative z-10">
+                  {/* Icon */}
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 transition-colors group-hover:border-emerald-500/20 group-hover:bg-emerald-500/5 group-hover:text-emerald-400">
+                    {toolkit.logo ? (
+                      <img
+                        src={toolkit.logo}
+                        alt={toolkit.name}
+                        className="h-5 w-5 rounded"
+                      />
+                    ) : (
+                      <Icon className="h-5 w-5" />
+                    )}
+                  </div>
+
+                  {/* Name & description */}
+                  <h3 className="text-sm font-semibold">{toolkit.name}</h3>
+                  <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
+                    {toolkit.description}
+                  </p>
+
+                  {/* Category tag */}
+                  <span className="mt-3 inline-block font-mono text-[10px] text-zinc-700">
+                    {toolkit.category.toUpperCase()}
+                  </span>
+
+                  {/* Connect button */}
+                  {connected ? (
+                    <button
+                      disabled
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] font-medium text-emerald-400"
+                    >
+                      <Check className="h-3 w-3" />
+                      CONNECTED
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push("/dashboard/terminal")}
+                      className="mt-4 w-full rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        <MessageSquare className="h-3 w-3" />
+                        CONNECT VIA CHAT
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      )}
 
       {/* Footer note */}
       <motion.div
@@ -219,7 +331,7 @@ export default function IntegrationsPage() {
       >
         <Puzzle className="h-3.5 w-3.5 text-zinc-600" />
         <span className="font-mono text-xs text-zinc-600">
-          Powered by Composio &mdash; 850+ integrations available
+          Powered by Composio &mdash; 1000+ integrations available
         </span>
       </motion.div>
     </motion.div>

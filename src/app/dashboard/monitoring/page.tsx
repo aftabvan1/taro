@@ -13,6 +13,7 @@ import {
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatBytes } from "@/lib/format";
 import { useDashboard } from "../layout";
 
 /* ------------------------------------------------------------------ */
@@ -31,11 +32,8 @@ interface Stats {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(mb: number): string {
-  if (mb === 0) return "0 MB";
-  if (mb < 1) return `${(mb * 1024).toFixed(0)} KB`;
-  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
-  return `${mb.toFixed(1)} MB`;
+function formatMB(mb: number): string {
+  return formatBytes(mb, "mb");
 }
 
 function formatTime(date: Date): string {
@@ -442,11 +440,11 @@ export default function MonitoringPage() {
         <MetricCard
           icon={<MemoryStick className="h-3.5 w-3.5" />}
           label="Memory"
-          value={stats ? formatBytes(stats.memoryUsageMB) : "\u2014"}
+          value={stats ? formatMB(stats.memoryUsageMB) : "\u2014"}
           percent={memPercent}
           subtext={
             stats
-              ? `${formatBytes(stats.memoryUsageMB)} / ${formatBytes(stats.memoryLimitMB)}`
+              ? `${formatMB(stats.memoryUsageMB)} / ${formatMB(stats.memoryLimitMB)}`
               : undefined
           }
           delay={0.05}
@@ -454,13 +452,13 @@ export default function MonitoringPage() {
         <MetricCard
           icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
           label="Network RX"
-          value={stats ? formatBytes(stats.networkRxMB) : "\u2014"}
+          value={stats ? formatMB(stats.networkRxMB) : "\u2014"}
           delay={0.1}
         />
         <MetricCard
           icon={<ArrowUpFromLine className="h-3.5 w-3.5" />}
           label="Network TX"
-          value={stats ? formatBytes(stats.networkTxMB) : "\u2014"}
+          value={stats ? formatMB(stats.networkTxMB) : "\u2014"}
           delay={0.15}
         />
       </div>

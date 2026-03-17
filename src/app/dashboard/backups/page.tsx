@@ -16,6 +16,7 @@ import {
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatBytes, formatDate, relativeTime } from "@/lib/format";
 import { useDashboard } from "../layout";
 
 /* ------------------------------------------------------------------ */
@@ -35,39 +36,8 @@ interface Backup {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null || bytes === 0) return "--";
-  const units = ["B", "KB", "MB", "GB"];
-  let i = 0;
-  let size = bytes;
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024;
-    i++;
-  }
-  return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function timeAgo(dateStr: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(dateStr).getTime()) / 1000,
-  );
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return relativeTime(dateStr);
 }
 
 /* ------------------------------------------------------------------ */
@@ -318,7 +288,7 @@ export default function BackupsPage() {
                     <div className="flex items-center gap-3">
                       <Clock className="h-3.5 w-3.5 text-zinc-600" />
                       <span className="font-mono text-sm">
-                        {formatDate(backup.createdAt)}
+                        {formatDate(backup.createdAt, { short: true })}
                       </span>
                     </div>
                     <span className="font-mono text-sm text-zinc-400">
@@ -356,7 +326,7 @@ export default function BackupsPage() {
                   <div className="space-y-3 sm:hidden">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm">
-                        {formatDate(backup.createdAt)}
+                        {formatDate(backup.createdAt, { short: true })}
                       </span>
                       <span
                         className={cn(
@@ -421,7 +391,7 @@ export default function BackupsPage() {
               <p className="mt-4 text-sm text-zinc-400">
                 Restore the backup from{" "}
                 <span className="font-mono font-medium text-zinc-200">
-                  {formatDate(restoreTarget.createdAt)}
+                  {formatDate(restoreTarget.createdAt, { short: true })}
                 </span>
                 ? This will overwrite your current instance data.
               </p>

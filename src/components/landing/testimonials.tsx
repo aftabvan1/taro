@@ -3,20 +3,14 @@
 import { motion } from "framer-motion";
 import { Section } from "@/components/ui/section";
 import { TESTIMONIALS } from "@/lib/constants";
+import { landingItem } from "@/lib/animation-variants";
 
 const containerVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
+const itemVariants = landingItem;
 
 export const Testimonials = () => {
   return (

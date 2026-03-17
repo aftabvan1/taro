@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: userInstances });
   } catch (error) {
-    console.error("List instances error:", error);
+    logger.error("List instances error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -96,11 +97,11 @@ export async function POST(req: NextRequest) {
 
     // Trigger Docker provisioning (fire-and-forget — don't block the response)
     provisionInstance(instance.id, name, mcAuthToken).catch((err) => {
-      console.error("Provisioning failed:", err);
+      logger.error("Provisioning failed:", err);
       db.update(instances)
         .set({ status: "error" })
         .where(eq(instances.id, instance.id))
-        .catch(console.error);
+        .catch((e) => logger.error("Failed to update instance status:", e));
     });
 
     return NextResponse.json(
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Create instance error:", error);
+    logger.error("Create instance error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

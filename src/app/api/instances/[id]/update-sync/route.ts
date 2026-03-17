@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -32,7 +33,7 @@ export async function POST(
     await updateSyncDaemon(instance.name, instance.id, instance.mcPort ?? undefined);
     return NextResponse.json({ ok: true, message: "Sync daemon updated and restarted" });
   } catch (err) {
-    console.error("[update-sync] Failed:", (err as Error).message);
+    logger.error("[update-sync] Failed:", (err as Error).message);
     return NextResponse.json(
       { error: `Failed to update sync daemon: ${(err as Error).message}` },
       { status: 500 }

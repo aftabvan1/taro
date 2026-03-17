@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
@@ -47,7 +48,7 @@ export async function POST(
       message: "Instance restarted",
     });
   } catch (error) {
-    console.error("Restart instance error:", error);
+    logger.error("Restart instance error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

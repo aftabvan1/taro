@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
       message: "Login successful",
     });
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error("Login error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
