@@ -74,11 +74,16 @@ export default function TerminalPage() {
   const hasTerminal =
     instance?.serverIp != null && instance?.ttydPort != null;
 
+  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh";
   const ttydHost = hasTerminal
-    ? `ttyd-${instance.serverIp!.replace(/\./g, "-")}.nip.io`
+    ? `ttyd-${instance.name}.${instanceDomain}`
     : null;
 
-  const terminalUrl = ttydHost ? `https://${ttydHost}` : null;
+  // Terminal token is fetched with the instance data and passed as a query param for auth
+  const terminalToken = instance?.terminalToken;
+  const terminalUrl = ttydHost
+    ? `https://${ttydHost}${terminalToken ? `?token=${terminalToken}` : ""}`
+    : null;
 
   /* ---- Uptime counter ---- */
   useEffect(() => {

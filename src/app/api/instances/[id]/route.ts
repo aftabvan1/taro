@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { logActivity } from "@/lib/activity";
+import { deleteInstance } from "@/lib/provisioner";
 import { eq, and } from "drizzle-orm";
 
 // GET /api/instances/:id — get instance details
@@ -51,13 +53,29 @@ export async function PATCH(
 
   const { id } = await params;
 
+  const patchSchema = z.object({
+    name: z.string().min(1).max(63).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/).optional(),
+    llmProvider: z.string().min(1).max(100).optional(),
+    llmModel: z.string().min(1).max(100).optional(),
+  }).refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided",
+  });
+
   try {
     const body = await req.json();
-    const updates: Record<string, unknown> = {};
+    const parsed = patchSchema.safeParse(body);
 
-    if (body.name !== undefined) updates.name = body.name;
-    if (body.llmProvider !== undefined) updates.llmProvider = body.llmProvider;
-    if (body.llmModel !== undefined) updates.llmModel = body.llmModel;
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.llmProvider !== undefined) updates.llmProvider = parsed.data.llmProvider;
+    if (parsed.data.llmModel !== undefined) updates.llmModel = parsed.data.llmModel;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
@@ -114,7 +132,14 @@ export async function DELETE(
       );
     }
 
-    // TODO: Sprint 3 — stop and remove Docker containers here
+    // Clean up Docker containers, systemd services, and Caddy config on the server
+    if (instance.containerName) {
+      try {
+        await deleteInstance(instance.containerName);
+      } catch (cleanupError) {
+        logger.error("Container cleanup error (proceeding with DB deletion):", cleanupError);
+      }
+    }
 
     await logActivity(
       id,

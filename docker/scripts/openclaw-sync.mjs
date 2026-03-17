@@ -83,12 +83,16 @@ async function syncProviderConfig() {
     if (!currentConfig.agents.defaults.models) currentConfig.agents.defaults.models = {};
     currentConfig.agents.defaults.models[model] = {};
 
-    // Write back
-    const configJson = JSON.stringify(currentConfig, null, 2).replace(/'/g, "'\\''");
+    // Write back using docker cp to avoid shell injection
+    const { writeFileSync, unlinkSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const tmpFile = join(tmpdir(), `openclaw-config-${Date.now()}.json`);
+    writeFileSync(tmpFile, JSON.stringify(currentConfig, null, 2));
     await execFileAsync("docker", [
-      "exec", CONTAINER_NAME,
-      "sh", "-c", `cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'\n${configJson}\nCFGEOF`,
+      "cp", tmpFile, `${CONTAINER_NAME}:/home/node/.openclaw/openclaw.json`,
     ], { timeout: 5000 });
+    try { unlinkSync(tmpFile); } catch { /* ignore */ }
 
     lastSyncedModel = model;
     console.log(`[syncProviderConfig] Updated OpenClaw model to ${model}`);
@@ -144,16 +148,17 @@ async function gatewayCall(method, params = {}, timeoutMs = 30000) {
  * Run a full agent turn using `openclaw agent` CLI.
  * Unlike chat.send, this actually executes the task and waits for completion.
  * Always uses agent "main" since that's the only OpenClaw agent configured.
- * Uses shell quoting via docker exec sh -c to handle multi-line messages.
+ * Uses docker exec with direct array args (no shell) to prevent injection.
  */
 async function agentRun(message, agentId = "main", timeoutSec = 120) {
-  // Write message to a temp file inside the container to avoid shell quoting issues
-  const escapedMsg = message.replace(/'/g, "'\\''");
-  const shellCmd = `openclaw agent --agent main --message '${escapedMsg}' --json --timeout ${timeoutSec}`;
-
+  // Pass message directly as an arg — no shell, no quoting issues
   const args = [
     "exec", CONTAINER_NAME,
-    "sh", "-c", shellCmd,
+    "openclaw", "agent",
+    "--agent", "main",
+    "--message", message,
+    "--json",
+    "--timeout", String(timeoutSec),
   ];
 
   const { stdout, stderr } = await execFileAsync("docker", args, {

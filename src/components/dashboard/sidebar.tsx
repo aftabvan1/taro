@@ -14,6 +14,7 @@ import {
   Settings,
   CreditCard,
   Plug,
+  MessageCircle,
   PanelLeftClose,
   PanelLeft,
   Menu,
@@ -106,15 +107,21 @@ interface NavItem {
   disabled?: boolean;
 }
 
-function buildNavItems(): NavItem[] {
+function buildNavItems(instance?: Instance | null): NavItem[] {
+  const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh";
+  const webChatUrl = instance?.name
+    ? `https://${instance.name}.${instanceDomain}`
+    : undefined;
+
   return [
     // MISSION CONTROL
     { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", section: "Mission Control" },
     { label: "Agents", icon: Bot, href: "/dashboard/agents", section: "Mission Control" },
     { label: "Boards", icon: LayoutGrid, href: "/dashboard/boards", section: "Mission Control" },
-{ label: "Live Feed", icon: Radio, href: "/dashboard/live-feed", section: "Mission Control" },
+    { label: "Live Feed", icon: Radio, href: "/dashboard/live-feed", section: "Mission Control" },
 
     // TOOLS
+    { label: "Web Chat", icon: MessageCircle, externalHref: webChatUrl, isExternal: true, section: "Tools" },
     { label: "Terminal", icon: Terminal, href: "/dashboard/terminal", section: "Tools" },
     { label: "Integrations", icon: Plug, href: "/dashboard/integrations", section: "Tools" },
 
@@ -138,7 +145,7 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = buildNavItems();
+  const navItems = buildNavItems(instance);
 
   const isActive = (href?: string) => {
     if (!href) return false;

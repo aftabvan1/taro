@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { logActivity } from "@/lib/activity";
+import { startInstance } from "@/lib/provisioner";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(
@@ -36,8 +37,9 @@ export async function POST(
       );
     }
 
-    // TODO: Sprint 3 — actually start Docker container via SSH
-    // await startContainer(instance.containerName);
+    if (instance.containerName) {
+      await startInstance(instance.containerName);
+    }
 
     const [updated] = await db
       .update(instances)

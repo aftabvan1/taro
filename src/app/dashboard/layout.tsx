@@ -36,6 +36,7 @@ export interface Instance {
   hetznerServerId?: string | null;
   containerName: string | null;
   mcAuthToken: string | null;
+  terminalToken: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -297,16 +298,16 @@ export default function DashboardLayout({
                 </div>
               )}
 
-              {/* Open OpenClaw quick button */}
-              {instance?.serverIp && (
+              {/* Open OpenClaw web chat quick button */}
+              {instance?.name && instance?.serverIp && (
                 <a
-                  href={`https://${instance.serverIp.replace(/\./g, "-")}.nip.io`}
+                  href={`https://${instance.name}.${process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taro.sh"}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-emerald-400 transition-colors hover:bg-emerald-500/20"
                 >
                   <Zap className="h-3 w-3" />
-                  OPEN CLAW
+                  WEB CHAT
                   <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               )}

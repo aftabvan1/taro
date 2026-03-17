@@ -9,6 +9,7 @@ import {
   json,
   primaryKey,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const planEnum = pgEnum("plan", ["hobby", "pro", "teams"]);
@@ -45,6 +46,10 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   plan: planEnum("plan").notNull().default("hobby"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -73,6 +78,9 @@ export const instances = pgTable(
     hetznerServerId: text("hetzner_server_id"),
     containerName: text("container_name"),
     mcAuthToken: text("mc_auth_token"),
+    terminalToken: text("terminal_token"),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
     llmProvider: text("llm_provider").notNull().default("openai-codex"),
     llmModel: text("llm_model").notNull().default("openai-codex/gpt-5.4"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -302,7 +310,10 @@ export const mcTags = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("mc_tags_instance_id_idx").on(t.instanceId)]
+  (t) => [
+    index("mc_tags_instance_id_idx").on(t.instanceId),
+    uniqueIndex("mc_tags_instance_name_idx").on(t.instanceId, t.name),
+  ]
 );
 
 export const mcTaskTags = pgTable(

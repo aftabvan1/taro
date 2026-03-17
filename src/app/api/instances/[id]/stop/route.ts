@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { logActivity } from "@/lib/activity";
+import { stopInstance } from "@/lib/provisioner";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(
@@ -36,7 +37,9 @@ export async function POST(
       );
     }
 
-    // TODO: Sprint 3 — actually stop Docker container via SSH
+    if (instance.containerName) {
+      await stopInstance(instance.containerName);
+    }
 
     const [updated] = await db
       .update(instances)

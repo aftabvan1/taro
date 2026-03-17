@@ -1,4 +1,5 @@
 import { NodeSSH } from "node-ssh";
+import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -84,16 +85,17 @@ ${syncScript}
 SYNCEOF`
   );
 
-  // Create env file with secrets
-  const databaseUrl = process.env.DATABASE_URL!;
+  // Create env file with secrets — use quoted heredoc to prevent shell expansion
+  // Use SYNC_DATABASE_URL (restricted role) if available, fall back to DATABASE_URL
+  const databaseUrl = process.env.SYNC_DATABASE_URL || process.env.DATABASE_URL!;
+  const envContent = [
+    `DATABASE_URL=${databaseUrl}`,
+    `INSTANCE_ID=${instanceId}`,
+    `CONTAINER_NAME=${containerName}-openclaw`,
+    `SYNC_HTTP_PORT=${mcPort}`,
+  ].join("\n");
   await conn.execCommand(
-    `cat > ${instanceDir}/sync/.env << ENVEOF
-DATABASE_URL=${databaseUrl}
-INSTANCE_ID=${instanceId}
-CONTAINER_NAME=${containerName}-openclaw
-SYNC_HTTP_PORT=${mcPort}
-ENVEOF
-chmod 600 ${instanceDir}/sync/.env`
+    `cat > ${instanceDir}/sync/.env << 'ENVEOF'\n${envContent}\nENVEOF\nchmod 600 ${instanceDir}/sync/.env`
   );
 
   // Create and start systemd service
@@ -139,38 +141,45 @@ export const provisionInstance = async (
   await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config`);
 
   // Write OpenClaw config (no auth for seamless Web Chat access via HTTPS proxy)
-  await conn.execCommand(
-    `cat > ${instanceDir}/data/openclaw-config/openclaw.json << CONFIGEOF
-{
-  "gateway": {
-    "controlUi": {
-      "allowedOrigins": ["https://${serverIp}", "http://${serverIp}:${ports.openclaw}", "http://localhost:3000"]
+  const openclawConfig = JSON.stringify({
+    gateway: {
+      controlUi: {
+        allowedOrigins: [`https://${serverIp}`, `http://${serverIp}:${ports.openclaw}`, "http://localhost:3000"],
+      },
+      auth: { mode: "none" },
     },
-    "auth": {
-      "mode": "none"
-    }
-  }
-}
-CONFIGEOF`
+  }, null, 2);
+  await conn.execCommand(
+    `cat > ${instanceDir}/data/openclaw-config/openclaw.json << 'CONFIGEOF'\n${openclawConfig}\nCONFIGEOF`
   );
   await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/openclaw-config`);
 
-  // Write docker-compose.yml
-  // OpenClaw binds to 127.0.0.1:18789 internally, so we use host networking
-  // and a socat forwarder to expose it on the allocated port.
-  // Mission Control runs globally on the server, not per-instance.
+  // Generate per-instance terminal token for ttyd auth
+  const terminalToken = randomBytes(32).toString("hex");
+
+  // Write docker-compose.yml — bridge networking with explicit port mapping
+  // Each container gets its own isolated network; only necessary ports are exposed on 127.0.0.1
   const compose = `
 services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ${containerName}-openclaw
-    network_mode: host
+    ports:
+      - "127.0.0.1:${ports.openclaw}:18789"
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     restart: unless-stopped
     mem_limit: 1536m
     memswap_limit: 2g
+    cpus: 1
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
 `;
 
   await conn.execCommand(
@@ -195,7 +204,7 @@ Description=ttyd terminal for ${containerName}
 After=docker.service
 
 [Service]
-ExecStart=/usr/bin/ttyd -p ${ports.ttyd} -W docker exec -it ${containerName}-openclaw /bin/sh
+ExecStart=/usr/bin/ttyd -i 127.0.0.1 -p ${ports.ttyd} -W docker exec -it ${containerName}-openclaw /bin/sh
 Restart=always
 RestartSec=3
 
@@ -205,42 +214,33 @@ TTYDEOF
 systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemctl start taro-ttyd-${instanceName}`
   );
 
-  // Create socat forwarder to expose OpenClaw (binds to localhost only) on the allocated port
-  await conn.execCommand(
-    `cat > /etc/systemd/system/taro-socat-${instanceName}.service << SOCATEOF
-[Unit]
-Description=Socat forwarder for ${containerName} OpenClaw
-After=docker.service
-
-[Service]
-ExecStart=/usr/bin/socat TCP-LISTEN:${ports.openclaw},fork,reuseaddr TCP:127.0.0.1:18789
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-SOCATEOF
-systemctl daemon-reload && systemctl enable taro-socat-${instanceName} && systemctl start taro-socat-${instanceName}`
-  );
-
   // Deploy OpenClaw sync daemon
   await deploySyncDaemon(conn, instanceName, instanceId, ports.mc);
 
-  // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy + nip.io
-  const nipDomain = serverIp.replace(/\./g, "-") + ".nip.io";
+  // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy
+  // ttyd requires a terminal token query param for authentication
+  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const openclawDomain = `${instanceName}.${instanceDomain}`;
+  const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
   await conn.execCommand(
-    `cat > /etc/caddy/Caddyfile << CADDYEOF
-${nipDomain} {
-    reverse_proxy 127.0.0.1:18789
+    `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
+${openclawDomain} {
+    reverse_proxy 127.0.0.1:${ports.openclaw}
 }
 
-ttyd-${nipDomain} {
+${ttydDomain} {
+    @no_token not query token=${terminalToken}
+    respond @no_token 401 {
+        body "Unauthorized"
+        close
+    }
     reverse_proxy 127.0.0.1:${ports.ttyd}
 }
 CADDYEOF
 systemctl reload caddy`
   );
 
-  // Update DB with connection details
+  // Update DB with connection details + terminal auth token
   await db
     .update(instances)
     .set({
@@ -250,6 +250,7 @@ systemctl reload caddy`
       ttydPort: ports.ttyd,
       mcPort: ports.mc,
       containerName,
+      terminalToken,
     })
     .where(eq(instances.id, instanceId));
 
@@ -285,19 +286,28 @@ export const reprovisionInstance = async (
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
-  // Rebuild the docker-compose.yml with updated config (ttyd now runs on host)
+  // Rebuild the docker-compose.yml with bridge networking + resource limits
   const compose = `
 services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ${containerName}-openclaw
-    network_mode: host
+    ports:
+      - "127.0.0.1:${openclawPort}:18789"
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     restart: unless-stopped
     mem_limit: 1536m
     memswap_limit: 2g
+    cpus: 1
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
 `;
 
   // Write updated compose file
@@ -328,7 +338,7 @@ Description=ttyd terminal for ${containerName}
 After=docker.service
 
 [Service]
-ExecStart=/usr/bin/ttyd -p ${ttydPort} -W docker exec -it ${containerName}-openclaw /bin/sh
+ExecStart=/usr/bin/ttyd -i 127.0.0.1 -p ${ttydPort} -W docker exec -it ${containerName}-openclaw /bin/sh
 Restart=always
 RestartSec=3
 
@@ -370,14 +380,29 @@ SYNCEOF`
 
   // Rewrite Caddy config and reload — ensures reverse proxy reconnects
   // after the upstream containers restart
-  const nipDomain = serverIp.replace(/\./g, "-") + ".nip.io";
+  // Fetch terminal token from DB for Caddy auth
+  const [instForToken] = await db
+    .select({ terminalToken: instances.terminalToken })
+    .from(instances)
+    .where(eq(instances.id, instanceId))
+    .limit(1);
+  const termToken = instForToken?.terminalToken || randomBytes(32).toString("hex");
+
+  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const openclawDomain = `${instanceName}.${instanceDomain}`;
+  const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
   await conn.execCommand(
-    `cat > /etc/caddy/Caddyfile << CADDYEOF
-${nipDomain} {
-    reverse_proxy 127.0.0.1:18789
+    `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
+${openclawDomain} {
+    reverse_proxy 127.0.0.1:${openclawPort}
 }
 
-ttyd-${nipDomain} {
+${ttydDomain} {
+    @no_token not query token=${termToken}
+    respond @no_token 401 {
+        body "Unauthorized"
+        close
+    }
     reverse_proxy 127.0.0.1:${ttydPort}
 }
 CADDYEOF
@@ -476,9 +501,9 @@ export const deleteInstance = async (containerName: string) => {
   const instanceDir = `/opt/taro/instances/${instanceName}`;
   await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
   await conn.execCommand(`rm -rf ${instanceDir}`);
-  // Clean up all systemd services (socat, ttyd, sync)
+  // Clean up systemd services (ttyd, sync) and Caddy site config
   await conn.execCommand(
-    `systemctl stop taro-socat-${instanceName} taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-socat-${instanceName} taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-socat-${instanceName}.service /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; systemctl daemon-reload`
+    `systemctl stop taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; rm -f /etc/caddy/sites/${instanceName}.caddy; systemctl daemon-reload; systemctl reload caddy 2>/dev/null`
   );
 };
 
