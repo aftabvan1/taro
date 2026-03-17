@@ -2,51 +2,57 @@ export const PLANS = [
   {
     name: "Hobby",
     price: 5,
-    description: "For developers exploring AI agents",
+    description: "For side projects and experimentation",
+    cupSize: "Regular",
     features: [
       "1 vCPU, 2GB RAM",
-      "Full terminal access",
+      "Full web terminal",
       "Daily automated backups",
-      "3 installed skills",
       "Agent overview & task boards",
+      "Activity timeline",
       "Community support",
     ],
-    cta: "Start Building",
+    cta: "Coming Soon",
     highlighted: false,
+    comingSoon: true,
   },
   {
     name: "Pro",
-    price: 15,
-    description: "For power users shipping real agents",
+    price: 14,
+    description: "Everything you need to ship agents to production",
+    cupSize: "Large",
     features: [
       "2 vCPU, 4GB RAM",
-      "Full terminal access",
+      "Full web terminal",
       "Hourly automated backups",
-      "Unlimited skills",
-      "Mission Control: activity timeline",
-      "Resource monitoring dashboard",
-      "Custom domain",
+      "Full Mission Control dashboard",
+      "Real-time resource monitoring",
+      "850+ Composio integrations",
+      "Custom fields & tags",
       "Priority support",
     ],
-    cta: "Go Pro",
+    cta: "Get Started",
     highlighted: true,
+    comingSoon: false,
   },
   {
     name: "Teams",
     price: 49,
-    description: "For teams running agents in production",
+    description: "For teams running agents at scale",
+    cupSize: "Taro Party",
     features: [
       "4 vCPU, 8GB RAM",
-      "Full terminal access",
+      "Full web terminal",
       "Continuous backups",
-      "Unlimited skills",
-      "Full Mission Control suite",
-      "Gateway orchestration",
-      "Audit logs & SSO",
+      "Full Mission Control dashboard",
+      "Real-time resource monitoring",
+      "850+ Composio integrations",
+      "Custom fields & tags",
       "Dedicated support + SLA",
     ],
-    cta: "Contact Sales",
+    cta: "Coming Soon",
     highlighted: false,
+    comingSoon: true,
   },
 ] as const;
 
@@ -54,38 +60,38 @@ export const FEATURES = [
   {
     title: "One-Click Deploy",
     description:
-      "From zero to a running AI agent in 30 seconds. No servers, no Docker, no YAML. Just click deploy.",
+      "From zero to a running OpenClaw instance in 30 seconds. We handle the server, Docker, networking, and SSL. You just click deploy.",
     icon: "Zap",
   },
   {
     title: "Mission Control",
     description:
-      "The only hosting platform with a built-in governance layer. Manage agents, tasks, and audit trails from one dashboard.",
+      "A full dashboard to manage your agents, track tasks on Kanban boards, and monitor everything from one place. Not just a container — a cockpit.",
     icon: "LayoutDashboard",
   },
   {
     title: "Web Terminal",
     description:
-      "A real terminal in your browser. Full shell access to your instance — install packages, debug, configure. No SSH needed.",
+      "A real terminal in your browser. Full shell access to your instance — install packages, debug, configure. No SSH setup needed.",
     icon: "Terminal",
   },
   {
     title: "Live Monitoring",
     description:
-      "Real-time CPU, memory, and network metrics. Know what your agent is doing before your users do.",
+      "Real-time CPU, memory, and network stats pulled straight from your container. Know exactly what your agent is doing.",
     icon: "Activity",
   },
   {
     title: "Automated Backups",
     description:
-      "Your agent's memory and data, backed up on schedule. One-click restore to any point in time.",
+      "Your agent's data, backed up on schedule. One-click restore to any point in time. Sleep well.",
     icon: "ShieldCheck",
   },
   {
-    title: "Skill Marketplace",
+    title: "850+ Integrations",
     description:
-      "Browse, install, and publish OpenClaw skills. Extend your agent or monetize your own creations.",
-    icon: "Store",
+      "Connect your agents to 850+ tools — GitHub, Gmail, Slack, Notion, Linear, Stripe, and more. One click to authenticate.",
+    icon: "Plug",
   },
 ] as const;
 
@@ -101,21 +107,21 @@ export const TESTIMONIALS = [
     name: "Sarah Chen",
     role: "Full-Stack Developer",
     quote:
-      "I went from spending weekends maintaining my VPS to deploying in 30 seconds. Taro's Mission Control is something I didn't know I needed — now I can't imagine running agents without it.",
+      "I went from spending weekends maintaining my VPS to deploying in 30 seconds. The Mission Control dashboard is something I didn't know I needed — now I can't go back to managing agents blind.",
     avatar: "SC",
   },
   {
     name: "Marcus Rivera",
     role: "AI Automation Consultant",
     quote:
-      "I manage 12 client agents on Taro. The approval workflows alone saved me from a production incident last month. This is what agent hosting should look like.",
+      "I run 12 client agents on Taro. Being able to see every agent's status, CPU usage, and task history in one dashboard changed everything. This is what agent hosting should look like.",
     avatar: "MR",
   },
   {
     name: "Aisha Patel",
     role: "Indie Hacker",
     quote:
-      "Published a Gmail automation skill on the marketplace and it's already generating passive income. The whole platform just feels right — fast, clean, no bloat.",
+      "Deployed my first agent in under a minute. The web terminal, monitoring, and backup system just work. No YAML, no Docker headaches — just results.",
     avatar: "AP",
   },
 ] as const;

@@ -27,7 +27,7 @@ export const Navbar = () => {
         className={cn(
           "fixed top-0 z-50 w-full border-b backdrop-blur-xl transition-all duration-300",
           scrolled
-            ? "border-white/[0.08] bg-[#0a0a0b]/80 shadow-[0_1px_30px_-8px_rgba(16,185,129,0.08)]"
+            ? "border-border bg-background/80 shadow-[0_1px_30px_-8px_rgba(155,126,200,0.1)]"
             : "border-transparent bg-transparent"
         )}
       >
@@ -35,15 +35,19 @@ export const Navbar = () => {
           <Logo />
 
           {/* Desktop nav — centered */}
-          <div className="hidden items-center gap-8 md:flex">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-sm text-muted transition-colors duration-200 hover:text-foreground"
-              >
-                {link.label}
-              </a>
+          <div className="hidden items-center gap-1 md:flex">
+            {NAV_LINKS.map((link, i) => (
+              <div key={link.label} className="flex items-center">
+                <a
+                  href={link.href}
+                  className="rounded-xl px-3 py-1.5 text-sm text-muted transition-colors duration-200 hover:text-foreground"
+                >
+                  {link.label}
+                </a>
+                {i < NAV_LINKS.length - 1 && (
+                  <span className="mx-1 h-1 w-1 rounded-full bg-brand/20" />
+                )}
+              </div>
             ))}
           </div>
 
@@ -60,7 +64,7 @@ export const Navbar = () => {
           {/* Mobile toggle */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-lg p-2 text-muted transition-colors hover:text-foreground md:hidden"
+            className="rounded-xl p-2 text-muted transition-colors hover:text-foreground md:hidden"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -75,7 +79,7 @@ export const Navbar = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-[#0a0a0b]/98 backdrop-blur-xl md:hidden"
+            className="fixed inset-0 z-40 bg-background/98 backdrop-blur-xl md:hidden"
           >
             <div className="flex h-full flex-col items-center justify-center gap-8">
               {NAV_LINKS.map((link, i) => (

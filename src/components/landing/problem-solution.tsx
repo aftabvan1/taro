@@ -4,20 +4,7 @@ import { motion } from "framer-motion";
 import { X, Check } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { LinesPatternCard, LinesPatternCardBody } from "@/components/ui/card-with-lines-pattern";
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.15 } },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: "easeOut" as const },
-  },
-};
+import { bouncyContainer, bouncyItem } from "@/lib/animation-variants";
 
 const PAIN_POINTS = [
   "Provision a VPS and configure Docker",
@@ -30,40 +17,41 @@ const PAIN_POINTS = [
 
 const SOLUTIONS = [
   "One-click deploy — live in 30 seconds",
-  "SSL, DNS, and networking handled for you",
+  "SSL, DNS, and networking handled automatically",
   "Automated backups with one-click restore",
-  "Built-in monitoring dashboard",
+  "Real-time monitoring built into the dashboard",
   "Hardened containers with auto-patching",
-  "Mission Control for full agent oversight",
+  "Mission Control to see everything at a glance",
 ];
 
 export const ProblemSolution = () => {
   return (
     <Section>
       <motion.div
-        variants={containerVariants}
+        variants={bouncyContainer}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
       >
-        <motion.div variants={cardVariants} className="mb-14 text-center">
+        <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Why <span className="text-gradient">Taro</span>?
+            Self-hosting is painful.{" "}
+            <span className="text-gradient">Taro makes it painless.</span>
           </h2>
           <p className="mt-4 text-muted">
-            You want to ship AI agents, not manage infrastructure.
+            You want to ship AI agents, not babysit infrastructure.
           </p>
         </motion.div>
 
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
           {/* Without Taro */}
           <LinesPatternCard
-            className="rounded-2xl border-red-500/20 bg-[#0c0c0e]"
-            gradientClassName="from-[#0c0c0e]/80 via-[#0c0c0e]/60 to-[#0c0c0e]/40"
+            className="rounded-3xl border-red-500/20 bg-card"
+            gradientClassName="from-card/80 via-card/60 to-card/40"
           >
-            <LinesPatternCardBody>
+            <LinesPatternCardBody className="p-8">
               <div className="mb-6 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/10">
                   <X size={16} className="text-red-400" />
                 </div>
                 <h3 className="font-semibold text-red-400">Without Taro</h3>
@@ -88,12 +76,12 @@ export const ProblemSolution = () => {
 
           {/* With Taro */}
           <LinesPatternCard
-            className="rounded-2xl border-brand/20 bg-[#0c0c0e]"
-            gradientClassName="from-[#0c0c0e]/80 via-[#0c0c0e]/60 to-[#0c0c0e]/40"
+            className="rounded-3xl border-brand/20 bg-card"
+            gradientClassName="from-card/80 via-card/60 to-card/40"
           >
-            <LinesPatternCardBody>
+            <LinesPatternCardBody className="p-8">
               <div className="mb-6 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand/10">
                   <Check size={16} className="text-brand" />
                 </div>
                 <h3 className="font-semibold text-brand">With Taro</h3>
@@ -110,7 +98,7 @@ export const ProblemSolution = () => {
                 ))}
               </ul>
               <p className="mt-8 font-mono text-xs text-brand/60">
-                30 seconds. Zero maintenance.
+                30 seconds to deploy. Zero maintenance after.
               </p>
             </LinesPatternCardBody>
           </LinesPatternCard>

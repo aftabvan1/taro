@@ -6,34 +6,55 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { landingHeroContainer } from "@/lib/animation-variants";
+import { bouncyContainer, bouncyItem } from "@/lib/animation-variants";
 
-const containerVariants = landingHeroContainer;
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
+const CupIcon = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
+  const heights = { sm: 32, md: 40, lg: 48 };
+  const h = heights[size];
+  return (
+    <svg
+      width={h * 0.75}
+      height={h}
+      viewBox="0 0 30 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 10h22l-2 26a3 3 0 0 1-3 2H9a3 3 0 0 1-3-2L4 10z"
+        fill="currentColor"
+        opacity="0.15"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <rect x="3" y="8" width="24" height="3" rx="1.5" fill="currentColor" opacity="0.3" />
+      <line x1="20" y1="2" x2="18" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="28" r="2" fill="currentColor" opacity="0.4" />
+      <circle cx="18" cy="30" r="2" fill="currentColor" opacity="0.4" />
+      {size === "lg" && (
+        <>
+          <circle cx="15" cy="25" r="1.5" fill="currentColor" opacity="0.3" />
+          <line x1="10" y1="3" x2="12" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+        </>
+      )}
+    </svg>
+  );
 };
 
 export const Pricing = () => {
   return (
     <Section id="pricing">
       <motion.div
-        variants={containerVariants}
+        variants={bouncyContainer}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
       >
-        <motion.div variants={itemVariants} className="mb-14 text-center">
+        <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Simple, transparent pricing
           </h2>
           <p className="mt-4 text-muted">
-            Start building for $5/mo. Scale when you&apos;re ready.
+            One plan, everything included. More tiers coming soon.
           </p>
         </motion.div>
 
@@ -41,23 +62,44 @@ export const Pricing = () => {
           {PLANS.map((plan) => (
             <motion.div
               key={plan.name}
-              variants={itemVariants}
+              variants={bouncyItem}
+              whileHover={!plan.comingSoon ? { y: -4, transition: { type: "spring", stiffness: 300, damping: 20 } } : undefined}
               className={cn(
-                "relative overflow-hidden rounded-2xl border p-8 transition-all duration-300",
+                "relative overflow-hidden rounded-3xl border p-8 transition-all duration-300",
                 plan.highlighted
-                  ? "border-brand/20 bg-white/[0.04] shadow-[0_0_40px_-10px_rgba(16,185,129,0.15)] md:scale-[1.03]"
-                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.03]"
+                  ? "border-brand/30 bg-card shadow-[0_0_50px_-10px_rgba(155,126,200,0.2)] md:scale-[1.03]"
+                  : "border-border bg-card",
+                plan.comingSoon && "select-none"
               )}
             >
               {plan.highlighted && (
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />
               )}
 
-              {plan.highlighted && (
-                <span className="mb-4 inline-block rounded-full bg-brand/10 px-3 py-1 font-mono text-xs text-brand ring-1 ring-brand/20">
-                  Most Popular
-                </span>
+              {/* Blur overlay for coming soon tiers */}
+              {plan.comingSoon && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-3xl backdrop-blur-[6px] bg-background/40">
+                  <span className="rounded-full border border-brand/20 bg-brand/10 px-4 py-1.5 font-mono text-sm font-medium text-brand">
+                    Coming Soon
+                  </span>
+                </div>
               )}
+
+              {/* Cup icon */}
+              <div className={cn(
+                "mb-4 flex items-center gap-3",
+                plan.highlighted ? "text-brand" : "text-muted"
+              )}>
+                <CupIcon size={plan.highlighted ? "md" : plan.name === "Teams" ? "lg" : "sm"} />
+                <div>
+                  <span className="text-xs font-medium text-muted">{plan.cupSize}</span>
+                  {plan.highlighted && (
+                    <span className="ml-2 rounded-full bg-brand/10 px-2.5 py-0.5 font-mono text-[10px] text-brand ring-1 ring-brand/20">
+                      Available Now
+                    </span>
+                  )}
+                </div>
+              </div>
 
               <h3 className="text-xl font-semibold">{plan.name}</h3>
               <p className="mt-1 text-sm text-muted">{plan.description}</p>
@@ -71,8 +113,8 @@ export const Pricing = () => {
 
               <Button
                 variant={plan.highlighted ? "primary" : "secondary"}
-                className="mt-6 w-full"
-                href="/auth/register"
+                className={cn("mt-6 w-full", plan.comingSoon && "pointer-events-none opacity-50")}
+                href={plan.comingSoon ? undefined : "/auth/register"}
               >
                 {plan.cta}
               </Button>

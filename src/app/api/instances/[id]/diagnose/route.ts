@@ -4,6 +4,7 @@ import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
 import { NodeSSH } from "node-ssh";
+import { validateShellName, validatePort } from "@/lib/shell-sanitize";
 
 interface DiagnosticResult {
   label: string;
@@ -44,6 +45,9 @@ export async function GET(
     results.push({ label: "SSH connection", ok: false, detail: (err as Error).message });
     return NextResponse.json({ results });
   }
+
+  // Validate DB values before shell interpolation
+  validateShellName(instance.name, "instance name");
 
   // Docker container
   const docker = await ssh.execCommand(
@@ -87,7 +91,10 @@ export async function GET(
 
   // Sync daemon port
   const mcPort = instance.mcPort ?? 0;
-  const portCheck = await ssh.execCommand(`ss -tlnp | grep ${mcPort}`);
+  if (mcPort > 0) validatePort(mcPort, "mc port");
+  const portCheck = mcPort > 0
+    ? await ssh.execCommand(`ss -tlnp | grep ${mcPort}`)
+    : { stdout: "", code: 1 };
   const portListening = portCheck.stdout.includes(String(mcPort));
   results.push({
     label: `Sync daemon port (${mcPort})`,

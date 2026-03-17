@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
 import { seedInstanceData } from "@/lib/seed-instance";
 import { logger } from "@/lib/logger";
+import { validateShellName, validatePort } from "@/lib/shell-sanitize";
 
 const ssh = new NodeSSH();
 
@@ -49,6 +50,8 @@ export const deploySyncDaemon = async (
   instanceId: string,
   mcPort: number
 ) => {
+  validateShellName(instanceName, "instance name");
+  validatePort(mcPort, "mc port");
   const instanceDir = `/opt/taro/instances/${instanceName}`;
   const containerName = `taro-${instanceName}`;
 
@@ -120,6 +123,7 @@ export const provisionInstance = async (
   instanceName: string,
   mcAuthToken: string
 ): Promise<ProvisionResult> => {
+  validateShellName(instanceName, "instance name");
   const conn = await getSSHConnection();
   const serverIp = process.env.HETZNER_SERVER_IP!;
 
@@ -274,6 +278,10 @@ export const reprovisionInstance = async (
   openclawPort: number,
   ttydPort: number
 ) => {
+  validateShellName(instanceName, "instance name");
+  validateShellName(containerName, "container name");
+  validatePort(openclawPort, "openclaw port");
+  validatePort(ttydPort, "ttyd port");
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
@@ -397,6 +405,8 @@ export const updateSyncDaemon = async (
   instanceId?: string,
   mcPort?: number
 ) => {
+  validateShellName(instanceName, "instance name");
+  if (mcPort !== undefined) validatePort(mcPort, "mc port");
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
@@ -432,6 +442,7 @@ SYNCEOF`
 export const stopInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   await conn.execCommand(
     `cd /opt/taro/instances/${instanceName} && docker compose stop`
   );
@@ -441,6 +452,7 @@ export const stopInstance = async (containerName: string) => {
 export const startInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   await conn.execCommand(
     `cd /opt/taro/instances/${instanceName} && docker compose start`
   );
@@ -450,6 +462,7 @@ export const startInstance = async (containerName: string) => {
 export const restartInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   await conn.execCommand(
     `cd /opt/taro/instances/${instanceName} && docker compose restart`
   );
@@ -459,6 +472,7 @@ export const restartInstance = async (containerName: string) => {
 export const deleteInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   const instanceDir = `/opt/taro/instances/${instanceName}`;
   await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
   await conn.execCommand(`rm -rf ${instanceDir}`);
@@ -479,6 +493,7 @@ export interface ContainerStats {
 export const getInstanceStats = async (
   containerName: string
 ): Promise<ContainerStats> => {
+  validateShellName(containerName.replace("taro-", ""), "container name");
   const conn = await getSSHConnection();
   const result = await conn.execCommand(
     `docker stats ${containerName}-openclaw --no-stream --format '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","net":"{{.NetIO}}"}'`

@@ -30,7 +30,8 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ data: instance });
+    const { mcAuthToken: _, ...safeInstance } = instance;
+    return NextResponse.json({ data: safeInstance });
   } catch (error) {
     logger.error("Get instance error:", error);
     return NextResponse.json(
@@ -78,7 +79,8 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ data: instance });
+    const { mcAuthToken: _, ...safeInstance } = instance;
+    return NextResponse.json({ data: safeInstance });
   } catch (error) {
     logger.error("Update instance error:", error);
     return NextResponse.json(

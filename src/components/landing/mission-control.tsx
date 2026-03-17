@@ -1,20 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { landingItem } from "@/lib/animation-variants";
+import { bouncyItem } from "@/lib/animation-variants";
 import {
   LayoutDashboard,
   Bot,
   Kanban,
   Settings,
   CheckCircle2,
-  XCircle,
-  Clock,
   Activity,
-  Shield,
-  Users,
   ScrollText,
-  Workflow,
+  Plug,
+  Tags,
 } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
@@ -24,7 +21,7 @@ import { ArrowRight } from "lucide-react";
 const MOCK_AGENTS = [
   { name: "email-assistant", status: "active", tasks: 24, cpu: "12%" },
   { name: "code-reviewer", status: "active", tasks: 18, cpu: "8%" },
-  { name: "data-pipeline", status: "pending", tasks: 7, cpu: "0%" },
+  { name: "data-pipeline", status: "idle", tasks: 7, cpu: "0%" },
 ];
 
 const STATS = [
@@ -45,36 +42,36 @@ const MC_FEATURES = [
   {
     icon: Bot,
     title: "Multi-Agent Overview",
-    description: "See every agent's status, resource usage, and task count in one view. No more SSHing into boxes to check if things are running.",
+    description: "See every agent's status, resource usage, and task count at a glance. Know what's running, what's idle, and what needs attention.",
   },
   {
     icon: Kanban,
-    title: "Task Boards",
-    description: "Kanban-style boards for every agent. Track what your agents are working on, what's queued, and what's done — like Jira, but for AI.",
+    title: "Kanban Task Boards",
+    description: "Drag-and-drop boards for every agent. Track what your agents are working on, what's queued, and what's done.",
   },
   {
-    icon: Shield,
-    title: "Approval Workflows",
-    description: "Human-in-the-loop control. When an agent wants to install a package, hit an API, or take a destructive action — you approve or deny it first.",
+    icon: Activity,
+    title: "Real-Time Monitoring",
+    description: "Live CPU, memory, and network stats pulled straight from your container. Animated charts, threshold alerts, 5-second refresh.",
   },
   {
     icon: ScrollText,
-    title: "Audit Logs & Timeline",
-    description: "Full activity timeline of every action every agent has taken. Searchable, exportable, and essential for debugging and compliance.",
+    title: "Activity Timeline",
+    description: "Full history of every action across all your agents. Filter by type, search by keyword, track everything that happened and when.",
   },
   {
-    icon: Workflow,
-    title: "Gateway Orchestration",
-    description: "Route requests between agents, set up pipelines, and orchestrate multi-agent workflows — all from the dashboard.",
+    icon: Plug,
+    title: "Composio Integrations",
+    description: "Connect to 850+ tools — GitHub, Gmail, Slack, Notion, Linear, Stripe, and more. One click to authenticate, instant access for your agents.",
   },
   {
-    icon: Users,
-    title: "Team Workspaces",
-    description: "Invite your team, set role-based permissions, and manage who can approve what. Built for teams shipping agents in production.",
+    icon: Tags,
+    title: "Custom Fields & Tags",
+    description: "Organize tasks your way with custom fields (text, number, date, select) and color-coded tags. Filter and sort across all your boards.",
   },
 ];
 
-const itemVariants = landingItem;
+const itemVariants = bouncyItem;
 
 export const MissionControl = () => {
   return (
@@ -96,10 +93,10 @@ export const MissionControl = () => {
           <span className="text-gradient">Mission Control.</span>
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted">
-          Every other hosting platform gives you a container and a terminal.
+          Every other platform gives you a container and a terminal.
           Taro gives you the container, the terminal, <strong className="text-foreground">and the cockpit</strong>.
-          A full governance and orchestration layer built into every instance — so you
-          can manage your agents like a team, not a black box.
+          A real dashboard built into every instance — so you always know
+          what your agents are doing.
         </p>
       </motion.div>
 
@@ -114,12 +111,12 @@ export const MissionControl = () => {
           className="relative order-2 lg:order-1"
         >
           <div className="absolute -inset-8 -z-10 rounded-3xl bg-brand/[0.06] blur-[60px]" />
-          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0c0e] shadow-2xl shadow-brand/5">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-brand/5">
             <div className="flex">
               {/* Mini sidebar */}
-              <div className="hidden w-44 shrink-0 border-r border-white/[0.04] bg-white/[0.015] p-3 sm:block">
+              <div className="hidden w-44 shrink-0 border-r border-border bg-white/[0.015] p-3 sm:block">
                 <div className="mb-4 flex items-center gap-2 px-2 py-1.5">
-                  <div className="h-5 w-5 rounded-md bg-gradient-to-br from-violet-500 to-purple-600" />
+                  <div className="h-5 w-5 rounded-md bg-gradient-to-br from-brand-light to-brand-dark" />
                   <span className="text-xs font-semibold">taro</span>
                 </div>
                 {NAV_ITEMS.map((item) => (
@@ -145,7 +142,7 @@ export const MissionControl = () => {
                   {STATS.map((stat) => (
                     <div
                       key={stat.label}
-                      className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-3"
+                      className="rounded-xl border border-border bg-white/[0.02] p-3"
                     >
                       <div className="flex items-baseline gap-1.5">
                         <p className="font-mono text-xl font-bold text-foreground">
@@ -169,15 +166,15 @@ export const MissionControl = () => {
                   {MOCK_AGENTS.map((agent) => (
                     <div
                       key={agent.name}
-                      className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-white/[0.015] px-3 py-2"
+                      className="flex items-center justify-between rounded-lg border border-border bg-white/[0.015] px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
                             "h-2 w-2 rounded-full",
                             agent.status === "active"
-                              ? "bg-violet-400"
-                              : "bg-amber-400"
+                              ? "bg-brand"
+                              : "bg-foreground/20"
                           )}
                         />
                         <span className="font-mono text-xs text-foreground">
@@ -196,30 +193,33 @@ export const MissionControl = () => {
                   ))}
                 </div>
 
-                {/* Approval card */}
-                <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.04] p-3">
+                {/* Monitoring bar */}
+                <div className="rounded-xl border border-brand/15 bg-brand/[0.04] p-3">
                   <div className="mb-2 flex items-center gap-1.5">
-                    <Clock size={12} className="text-amber-400" />
-                    <span className="text-[10px] font-medium text-amber-400">
-                      Pending Approval
+                    <Activity size={12} className="text-brand" />
+                    <span className="text-[10px] font-medium text-brand">
+                      Live Resource Monitor
                     </span>
                   </div>
-                  <p className="mb-3 text-xs text-muted">
-                    <span className="font-mono text-foreground">data-pipeline</span>{" "}
-                    wants to execute:{" "}
-                    <code className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-                      npm install express
-                    </code>
-                  </p>
-                  <div className="flex gap-2">
-                    <button className="flex items-center gap-1 rounded-md bg-brand/15 px-2.5 py-1 text-[10px] font-medium text-brand transition-colors hover:bg-brand/25">
-                      <CheckCircle2 size={10} />
-                      Approve
-                    </button>
-                    <button className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-muted transition-colors hover:bg-white/[0.08]">
-                      <XCircle size={10} />
-                      Deny
-                    </button>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] text-muted/50">CPU</p>
+                      <div className="mt-1 h-1.5 rounded-full bg-white/[0.06]">
+                        <div className="h-full w-[18%] rounded-full bg-brand" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] text-muted/50">RAM</p>
+                      <div className="mt-1 h-1.5 rounded-full bg-white/[0.06]">
+                        <div className="h-full w-[30%] rounded-full bg-brand" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] text-muted/50">NET</p>
+                      <div className="mt-1 h-1.5 rounded-full bg-white/[0.06]">
+                        <div className="h-full w-[12%] rounded-full bg-accent" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -237,20 +237,20 @@ export const MissionControl = () => {
         >
           <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Your agents are autonomous.<br />
-            <span className="text-muted">Your oversight shouldn&apos;t be optional.</span>
+            <span className="text-muted">Your visibility shouldn&apos;t be optional.</span>
           </h3>
           <p className="mt-4 max-w-md leading-relaxed text-muted">
-            Mission Control is a governance layer that sits on top of every OpenClaw
-            instance. It&apos;s how you go from &ldquo;I hope my agent is fine&rdquo; to
-            &ldquo;I know exactly what it&apos;s doing, and it can&apos;t act without my say-so.&rdquo;
+            Mission Control gives you real-time visibility into every OpenClaw
+            instance you run. See what&apos;s happening, track every task, and catch
+            problems before they become incidents.
           </p>
           <ul className="mt-6 space-y-3">
             {[
               "See all agents, tasks, and resource usage in one pane",
-              "Approve or deny agent actions before they execute",
-              "Full audit log of every decision and action",
-              "Kanban boards to track agent workloads",
-              "Team roles — control who can approve what",
+              "Kanban boards to track what agents are working on",
+              "Live CPU, memory, and network monitoring",
+              "Full activity timeline — every action, searchable",
+              "Connect to 850+ tools via Composio — GitHub, Slack, Gmail, and more",
             ].map((item) => (
               <li
                 key={item}
@@ -282,9 +282,10 @@ export const MissionControl = () => {
           <motion.div
             key={feature.title}
             variants={itemVariants}
-            className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.04]"
+            whileHover={{ scale: 1.02, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+            className="group rounded-2xl border border-border bg-card p-6 transition-colors duration-300 hover:border-brand/20"
           >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 ring-1 ring-brand/20">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/10 ring-1 ring-brand/20">
               <feature.icon size={20} className="text-brand" />
             </div>
             <h4 className="mb-1.5 font-semibold">{feature.title}</h4>

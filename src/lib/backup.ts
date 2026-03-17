@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { backups, instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
+import { validateShellName } from "@/lib/shell-sanitize";
 
 const getSSHConnection = async () => {
   const ssh = new NodeSSH();
@@ -26,6 +27,7 @@ export const createBackup = async (instanceId: string) => {
   }
 
   const instanceName = instance.containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupPath = `/opt/taro/backups/${instanceName}/${timestamp}.tar.gz`;
 
@@ -115,6 +117,7 @@ export const restoreBackup = async (
   }
 
   const instanceName = instance.containerName.replace("taro-", "");
+  validateShellName(instanceName, "instance name");
   const instanceDir = `/opt/taro/instances/${instanceName}`;
   const conn = await getSSHConnection();
 

@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
       .where(eq(instances.userId, auth.userId))
       .orderBy(instances.createdAt);
 
-    return NextResponse.json({ data: userInstances });
+    // Strip sensitive fields from response
+    const sanitized = userInstances.map(({ mcAuthToken: _, ...rest }) => rest);
+    return NextResponse.json({ data: sanitized });
   } catch (error) {
     logger.error("List instances error:", error);
     return NextResponse.json(
@@ -104,8 +106,9 @@ export async function POST(req: NextRequest) {
         .catch((e) => logger.error("Failed to update instance status:", e));
     });
 
+    const { mcAuthToken: _, ...safeInstance } = instance;
     return NextResponse.json(
-      { data: instance, message: "Instance provisioning started" },
+      { data: safeInstance, message: "Instance provisioning started" },
       { status: 201 }
     );
   } catch (error) {

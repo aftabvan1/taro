@@ -1,27 +1,20 @@
 @import "tailwindcss";
 
-:root {
-  --background: #fafafa;
-  --foreground: #0a0a0b;
-  --muted: #71717a;
-  --border: #e4e4e7;
-  --card: #ffffff;
-  --card-foreground: #09090b;
-  --brand: #8b5cf6;
-  --brand-foreground: #ffffff;
-  --accent: #f59e0b;
-}
-
+/* Dark mode only — no light mode */
+:root,
 .dark {
   --background: #0a0a0b;
-  --foreground: #fafafa;
-  --muted: #a1a1aa;
-  --border: #27272a;
-  --card: #111113;
-  --card-foreground: #fafafa;
-  --brand: #8b5cf6;
+  --foreground: #f5f0eb;
+  --muted: #a89fad;
+  --border: #2a2430;
+  --card: #13111a;
+  --card-foreground: #f5f0eb;
+  --brand: #9B7EC8;
+  --brand-light: #C4A8E0;
+  --brand-dark: #7B5EA8;
   --brand-foreground: #ffffff;
-  --accent: #f59e0b;
+  --accent: #D4A574;
+  --accent-light: #E8D5C0;
 }
 
 @theme inline {
@@ -32,13 +25,16 @@
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-brand: var(--brand);
+  --color-brand-light: var(--brand-light);
+  --color-brand-dark: var(--brand-dark);
   --color-brand-foreground: var(--brand-foreground);
   --color-accent: var(--accent);
-  --font-sans: var(--font-space-grotesk);
+  --color-accent-light: var(--accent-light);
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-fredoka);
   --font-mono: var(--font-geist-mono);
 
   --bg-image-lines-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'%3E%3Cg stroke-width='3.5' stroke='hsla(0, 0%25, 100%25, 1.00)' fill='none'%3E%3Cline x1='0' y1='0' x2='400' y2='400'%3E%3C/line%3E%3Cline x1='400' y1='0' x2='800' y2='400'%3E%3C/line%3E%3Cline x1='800' y1='0' x2='1200' y2='400'%3E%3C/line%3E%3Cline x1='0' y1='400' x2='400' y2='800'%3E%3C/line%3E%3Cline x1='400' y1='400' x2='800' y2='800'%3E%3C/line%3E%3Cline x1='800' y1='400' x2='1200' y2='800'%3E%3C/line%3E%3Cline x1='0' y1='800' x2='400' y2='1200'%3E%3C/line%3E%3Cline x1='400' y1='800' x2='800' y2='1200'%3E%3C/line%3E%3Cline x1='800' y1='800' x2='1200' y2='1200'%3E%3C/line%3E%3C/g%3E%3C/svg%3E");
-  --bg-image-lines-pattern-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'%3E%3Cg stroke-width='3.5' stroke='hsla(215, 16%25, 47%25, 1.00)' fill='none'%3E%3Cline x1='0' y1='0' x2='400' y2='400'%3E%3C/line%3E%3Cline x1='400' y1='0' x2='800' y2='400'%3E%3C/line%3E%3Cline x1='800' y1='0' x2='1200' y2='400'%3E%3C/line%3E%3Cline x1='0' y1='400' x2='400' y2='800'%3E%3C/line%3E%3Cline x1='400' y1='400' x2='800' y2='800'%3E%3C/line%3E%3Cline x1='800' y1='400' x2='1200' y2='800'%3E%3C/line%3E%3Cline x1='0' y1='800' x2='400' y2='1200'%3E%3C/line%3E%3Cline x1='400' y1='800' x2='800' y2='1200'%3E%3C/line%3E%3Cline x1='800' y1='800' x2='1200' y2='1200'%3E%3C/line%3E%3C/g%3E%3C/svg%3E");
 }
 
 body {
@@ -58,13 +54,13 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
-/* Glow effects */
+/* Glow effects — taro purple */
 .glow-brand {
-  box-shadow: 0 0 60px -12px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 60px -12px rgba(155, 126, 200, 0.4);
 }
 
 .glow-brand-sm {
-  box-shadow: 0 0 30px -8px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 30px -8px rgba(155, 126, 200, 0.3);
 }
 
 /* Grid pattern background */
@@ -84,9 +80,9 @@ body {
   animation: blink 1s step-end infinite;
 }
 
-/* Gradient text */
+/* Gradient text — warm taro gradient */
 .text-gradient {
-  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 40%, #6d28d9 100%);
+  background: linear-gradient(135deg, #C4A8E0 0%, #9B7EC8 40%, #7B5EA8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -97,9 +93,9 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Selection color */
+/* Selection color — taro purple */
 ::selection {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(155, 126, 200, 0.3);
 }
 
 /* Scrollbar */
@@ -113,10 +109,10 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.25);
+  background: rgba(168, 159, 173, 0.25);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(161, 161, 170, 0.4);
+  background: rgba(168, 159, 173, 0.4);
 }

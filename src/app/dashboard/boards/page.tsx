@@ -8,9 +8,7 @@ import {
   AlertTriangle,
   Loader2,
   ClipboardList,
-  CheckCircle2,
   Bot,
-  Calendar,
   RefreshCw,
   Clock,
   Plus,
@@ -19,16 +17,12 @@ import {
   Eye,
   List,
   Columns3,
-  Inbox,
-  Zap,
-  GripVertical,
-  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeTime, daysUntil } from "@/lib/format";
 import { dashboardContainer, dashboardItem } from "@/lib/animation-variants";
 import { useDashboard } from "../layout";
-import type { MCBoard, MCTask, MCAgent, MCTag } from "@/lib/mission-control/types";
+import type { MCBoard, MCTask, MCAgent } from "@/lib/mission-control/types";
 import {
   DndContext,
   DragOverlay,
@@ -39,9 +33,12 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+
+import { priorityConfig, columnConfig, VALID_STATUSES } from "@/components/boards/board-config";
+import { DroppableColumn } from "@/components/boards/droppable-column";
+import { DraggableTaskCard } from "@/components/boards/draggable-task-card";
+import { TaskDetailModal } from "@/components/boards/task-detail-modal";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,577 +46,6 @@ import { CSS } from "@dnd-kit/utilities";
 
 const containerVariants = dashboardContainer;
 const itemVariants = dashboardItem;
-
-const priorityConfig = {
-  high: {
-    label: "HIGH",
-    stripe: "bg-red-500",
-    badge: "bg-red-500/10 text-red-400 border-red-500/20",
-  },
-  medium: {
-    label: "MED",
-    stripe: "bg-amber-500",
-    badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  },
-  low: {
-    label: "LOW",
-    stripe: "bg-zinc-600",
-    badge: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
-  },
-} as const;
-
-const VALID_STATUSES = new Set(["inbox", "todo", "in_progress", "review", "done"]);
-
-const columnConfig = [
-  {
-    key: "inbox" as const,
-    label: "Inbox",
-    icon: Inbox,
-    dotColor: "bg-amber-400",
-    color: "text-amber-400",
-    headerBorder: "border-amber-500/20",
-    countBg: "bg-amber-500/10 text-amber-400",
-  },
-  {
-    key: "todo" as const,
-    label: "To Do",
-    icon: ClipboardList,
-    dotColor: "bg-zinc-400",
-    color: "text-zinc-400",
-    headerBorder: "border-zinc-500/20",
-    countBg: "bg-zinc-500/10 text-zinc-400",
-  },
-  {
-    key: "in_progress" as const,
-    label: "In Progress",
-    icon: Loader2,
-    dotColor: "bg-blue-400",
-    color: "text-blue-400",
-    headerBorder: "border-blue-500/20",
-    countBg: "bg-blue-500/10 text-blue-400",
-  },
-  {
-    key: "review" as const,
-    label: "Review",
-    icon: Eye,
-    dotColor: "bg-purple-400",
-    color: "text-purple-400",
-    headerBorder: "border-purple-500/20",
-    countBg: "bg-purple-500/10 text-purple-400",
-  },
-  {
-    key: "done" as const,
-    label: "Done",
-    icon: CheckCircle2,
-    dotColor: "bg-emerald-400",
-    color: "text-emerald-400",
-    headerBorder: "border-emerald-500/20",
-    countBg: "bg-emerald-500/10 text-emerald-400",
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Droppable Column
-// ---------------------------------------------------------------------------
-
-function DroppableColumn({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "space-y-2 min-h-[100px] rounded-lg transition-colors",
-        isOver && "bg-emerald-500/[0.03] ring-1 ring-emerald-500/20"
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Draggable Task Card
-// ---------------------------------------------------------------------------
-
-interface DraggableTaskCardProps {
-  task: MCTask;
-  agents: MCAgent[];
-  token: string;
-  onUpdateTask: (taskId: string, updates: Partial<MCTask>) => void;
-  onDispatch: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
-  onOpenDetail: (task: MCTask) => void;
-}
-
-function DraggableTaskCard({
-  task,
-  agents,
-  token,
-  onUpdateTask,
-  onDispatch,
-  onDelete,
-  onOpenDetail,
-}: DraggableTaskCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id, data: { task } });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
-
-  const priority = priorityConfig[task.priority];
-  const isOverdue =
-    task.due_date &&
-    new Date(task.due_date).getTime() < Date.now() &&
-    task.status !== "done";
-
-  return (
-    <div ref={setNodeRef} style={style} className="group">
-      <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0d] transition-all hover:border-white/10">
-        {/* Priority stripe */}
-        <div className={cn("h-[2px] w-full", priority.stripe)} />
-        <div className="p-3">
-          <div className="flex items-start gap-2">
-            {/* Drag handle */}
-            <button
-              {...attributes}
-              {...listeners}
-              className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-zinc-700 opacity-0 transition-all hover:bg-white/[0.04] hover:text-zinc-500 group-hover:opacity-100 active:cursor-grabbing"
-            >
-              <GripVertical className="h-3.5 w-3.5" />
-            </button>
-
-            <button
-              onClick={() => onOpenDetail(task)}
-              className="min-w-0 flex-1 text-left"
-            >
-              <p className="font-mono text-sm font-medium text-zinc-300 transition-colors hover:text-white">
-                {task.title}
-              </p>
-            </button>
-            <button
-              onClick={() => onDelete(task.id)}
-              className="shrink-0 rounded p-1 text-zinc-700 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-              title="Delete task"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-
-          {/* Description preview */}
-          {task.description && (
-            <p className="mt-1.5 ml-6 line-clamp-2 font-mono text-[10px] text-zinc-500">
-              {task.description}
-            </p>
-          )}
-
-          {/* Dispatch status */}
-          {task.dispatched_at ? (
-            <div className="mt-1.5 ml-6 space-y-1">
-              {task.dispatch_output ? (
-                <div className="flex items-center gap-1 rounded border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 w-fit">
-                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-400" />
-                  <span className="font-mono text-[9px] text-emerald-400">
-                    COMPLETED
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 rounded border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 w-fit">
-                  <Zap className="h-2.5 w-2.5 text-blue-400" />
-                  <span className="font-mono text-[9px] text-blue-400">
-                    DISPATCHED
-                  </span>
-                </div>
-              )}
-              {task.dispatch_output && (
-                <p className="line-clamp-2 font-mono text-[10px] text-zinc-500">
-                  {task.dispatch_output.slice(0, 120)}
-                  {task.dispatch_output.length > 120 ? "..." : ""}
-                </p>
-              )}
-            </div>
-          ) : task.agent_name && task.status !== "done" ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDispatch(task.id);
-              }}
-              className="mt-1.5 ml-6 flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_8px_rgba(16,185,129,0.15)]"
-            >
-              <Zap className="h-3 w-3" />
-              DISPATCH
-            </button>
-          ) : null}
-
-          {/* Bottom row: agent, priority, due date, tags */}
-          <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2">
-            {/* Agent assignment dropdown */}
-            <select
-              value={task.agent_name || ""}
-              onChange={(e) =>
-                onUpdateTask(task.id, { agent_name: e.target.value })
-              }
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "rounded border px-1.5 py-0.5 font-mono text-[10px] outline-none cursor-pointer",
-                task.agent_name
-                  ? "border-emerald-500/15 bg-emerald-500/5 text-emerald-400"
-                  : "border-white/[0.08] bg-transparent text-zinc-600"
-              )}
-            >
-              <option value="">No agent</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.name}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-
-            {/* Priority picker */}
-            <select
-              value={task.priority}
-              onChange={(e) =>
-                onUpdateTask(task.id, {
-                  priority: e.target.value as MCTask["priority"],
-                })
-              }
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold outline-none cursor-pointer",
-                priority.badge
-              )}
-            >
-              <option value="low">LOW</option>
-              <option value="medium">MED</option>
-              <option value="high">HIGH</option>
-            </select>
-
-            {/* Tags */}
-            {task.tags && task.tags.length > 0 && (
-              <div className="flex items-center gap-1">
-                {task.tags.map((tag: MCTag) => (
-                  <span
-                    key={tag.id}
-                    className="rounded-full border px-1.5 py-0.5 font-mono text-[9px]"
-                    style={{
-                      backgroundColor: `${tag.color}15`,
-                      borderColor: `${tag.color}30`,
-                      color: tag.color,
-                    }}
-                    title={tag.name}
-                  >
-                    {tag.name}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Due date */}
-            {task.due_date && (
-              <div
-                className={cn(
-                  "flex items-center gap-1",
-                  isOverdue ? "text-red-400" : "text-zinc-600"
-                )}
-              >
-                <Calendar className="h-3 w-3" />
-                <span className="font-mono text-[10px]">
-                  {daysUntil(task.due_date)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Task Detail Modal
-// ---------------------------------------------------------------------------
-
-interface TaskDetailModalProps {
-  task: MCTask;
-  agents: MCAgent[];
-  token: string;
-  onClose: () => void;
-  onSave: (taskId: string, updates: Record<string, unknown>) => Promise<void>;
-  onDispatch: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
-}
-
-function TaskDetailModal({
-  task,
-  agents,
-  token,
-  onClose,
-  onSave,
-  onDispatch,
-  onDelete,
-}: TaskDetailModalProps) {
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
-  const [status, setStatus] = useState(task.status);
-  const [priority, setPriority] = useState(task.priority);
-  const [agentName, setAgentName] = useState(task.agent_name);
-  const [dueDate, setDueDate] = useState(
-    task.due_date ? task.due_date.slice(0, 10) : ""
-  );
-  const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const hasChanges =
-    title !== task.title ||
-    description !== task.description ||
-    status !== task.status ||
-    priority !== task.priority ||
-    agentName !== task.agent_name ||
-    (dueDate || null) !== (task.due_date ? task.due_date.slice(0, 10) : null);
-
-  const handleSave = async () => {
-    if (!hasChanges) return;
-    setSaving(true);
-    const updates: Record<string, unknown> = {};
-    if (title !== task.title) updates.title = title;
-    if (description !== task.description) updates.description = description;
-    if (status !== task.status) updates.status = status;
-    if (priority !== task.priority) updates.priority = priority;
-    if (agentName !== task.agent_name) updates.agent_name = agentName;
-    if ((dueDate || null) !== (task.due_date ? task.due_date.slice(0, 10) : null))
-      updates.due_date = dueDate || null;
-    await onSave(task.id, updates);
-    setSaving(false);
-  };
-
-  const copySessionId = () => {
-    if (task.openclaw_session_id) {
-      navigator.clipboard.writeText(task.openclaw_session_id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/[0.08] bg-[#0c0c0d] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
-          <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Task Detail
-          </span>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-white/[0.04] hover:text-zinc-400"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="space-y-4 px-5 py-4">
-          {/* Title */}
-          <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-sm text-zinc-200 outline-none focus:border-emerald-500/30"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-              Description / Agent Instructions
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              placeholder="Detailed instructions for the agent..."
-              className="w-full resize-y rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-700 outline-none focus:border-emerald-500/30"
-            />
-          </div>
-
-          {/* Row: Status, Priority, Agent */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-                Status
-              </label>
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as MCTask["status"])
-                }
-                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
-              >
-                <option value="inbox">Inbox</option>
-                <option value="in_progress">In Progress</option>
-                <option value="review">Review</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-                Priority
-              </label>
-              <select
-                value={priority}
-                onChange={(e) =>
-                  setPriority(e.target.value as MCTask["priority"])
-                }
-                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-                Agent
-              </label>
-              <select
-                value={agentName}
-                onChange={(e) => setAgentName(e.target.value)}
-                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
-              >
-                <option value="">No agent</option>
-                {agents.map((a) => (
-                  <option key={a.id} value={a.name}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Due Date */}
-          <div>
-            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
-            />
-          </div>
-
-          {/* Dispatch Info */}
-          {task.dispatched_at && (
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-2">
-              <div className="flex flex-wrap items-center gap-3 font-mono text-[10px]">
-                {task.dispatch_output ? (
-                  <div className="flex items-center gap-1 text-emerald-400">
-                    <CheckCircle2 className="h-3 w-3" />
-                    COMPLETED
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-blue-400">
-                    <Zap className="h-3 w-3" />
-                    DISPATCHED
-                  </div>
-                )}
-                <div className="flex items-center gap-1 text-zinc-500">
-                  <Clock className="h-3 w-3" />
-                  {relativeTime(task.dispatched_at)}
-                </div>
-                {task.openclaw_session_id && (
-                  <button
-                    onClick={copySessionId}
-                    className="flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-zinc-600 transition-colors hover:text-zinc-400"
-                  >
-                    <Copy className="h-2.5 w-2.5" />
-                    {copied ? "Copied!" : `Session: ${task.openclaw_session_id.slice(0, 16)}...`}
-                  </button>
-                )}
-              </div>
-              {task.dispatch_output && (
-                <div className="max-h-48 overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-3">
-                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-zinc-300">
-                    {task.dispatch_output}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3">
-          <button
-            onClick={() => {
-              onDelete(task.id);
-              onClose();
-            }}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-mono text-[10px] text-red-400 transition-colors hover:bg-red-500/10"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            DELETE
-          </button>
-          <div className="flex items-center gap-2">
-            {agentName && !task.dispatched_at && (
-              <button
-                onClick={() => {
-                  onDispatch(task.id);
-                  onClose();
-                }}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                DISPATCH
-              </button>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || saving}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 disabled:opacity-40"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              SAVE
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -751,7 +177,6 @@ export default function BoardsPage() {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
         );
-        // Update detail modal if open
         if (detailTask?.id === taskId) {
           setDetailTask((prev) => (prev ? { ...prev, ...updated } : null));
         }
@@ -762,7 +187,6 @@ export default function BoardsPage() {
   }
 
   function handleUpdateTask(taskId: string, updates: Partial<MCTask>) {
-    // Optimistic update
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
     );
@@ -893,14 +317,12 @@ export default function BoardsPage() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    // Only accept drops on valid column targets, not on other task cards
     if (!VALID_STATUSES.has(overId)) return;
 
     const newStatus = overId as MCTask["status"];
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === newStatus) return;
 
-    // Optimistic update + PATCH
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
@@ -1154,7 +576,7 @@ export default function BoardsPage() {
             )}
           </div>
         ) : (
-          /* ---- Board View (Agents + 4 status columns with drag & drop) ---- */
+          /* ---- Board View ---- */
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -1241,7 +663,6 @@ export default function BoardsPage() {
               {/* Status Columns */}
               {grouped.map((column) => (
                 <div key={column.key} className="min-w-[240px] flex-1">
-                  {/* Column header */}
                   <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2">
                     <span
                       className={cn(
@@ -1267,7 +688,6 @@ export default function BoardsPage() {
                     </span>
                   </div>
 
-                  {/* Droppable zone */}
                   <DroppableColumn id={column.key}>
                     <SortableContext
                       items={column.tasks.map((t) => t.id)}

@@ -16,9 +16,9 @@ const buttonVariants = cva(
           "text-muted hover:text-foreground hover:bg-white/5",
       },
       size: {
-        sm: "h-8 px-3 text-xs rounded-lg",
-        md: "h-10 px-5 text-sm rounded-lg",
-        lg: "h-12 px-7 text-base rounded-xl",
+        sm: "h-8 px-3 text-xs rounded-xl",
+        md: "h-10 px-5 text-sm rounded-xl",
+        lg: "h-12 px-7 text-base rounded-2xl",
       },
     },
     defaultVariants: {

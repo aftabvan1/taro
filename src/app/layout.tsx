@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { Geist_Mono, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Nunito, Geist_Mono, JetBrains_Mono, Fredoka } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin"],
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
   subsets: ["latin"],
 });
 
@@ -32,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${spaceGrotesk.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased noise-bg`}
+        className={`${nunito.variable} ${fredoka.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased noise-bg`}
       >
         <Providers>{children}</Providers>
       </body>

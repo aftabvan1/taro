@@ -1,4 +1,7 @@
+"use client";
+
 import { Logo } from "@/components/shared/logo";
+import { TaroMascot } from "@/components/shared/taro-mascot";
 
 const FOOTER_LINKS = {
   Product: [
@@ -23,12 +26,15 @@ const FOOTER_LINKS = {
 
 export const Footer = () => {
   return (
-    <footer className="border-t border-white/[0.04] px-6 py-16 md:px-8">
+    <footer className="border-t border-border px-6 py-16 md:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand */}
           <div>
-            <Logo size="sm" />
+            <div className="flex items-center gap-3">
+              <Logo size="sm" />
+              <TaroMascot mood="sleeping" size="sm" />
+            </div>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted/70">
               Managed OpenClaw hosting with built-in mission control. Deploy in
               seconds, manage like a pro.
@@ -44,7 +50,7 @@ export const Footer = () => {
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm text-muted/60 transition-colors duration-200 hover:text-foreground"
+                      className="text-sm text-muted/60 transition-colors duration-200 hover:text-brand"
                     >
                       {link.label}
                     </a>
@@ -56,15 +62,15 @@ export const Footer = () => {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/[0.04] pt-8 md:flex-row">
+        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
           <p className="text-xs text-muted/40">
-            &copy; {new Date().getFullYear()} Taro Labs. All rights reserved.
+            Made with boba and late nights by Taro Labs &middot; &copy; {new Date().getFullYear()}
           </p>
           <div className="flex items-center gap-4">
             {/* GitHub */}
             <a
               href="#"
-              className="text-muted/40 transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-brand"
               aria-label="GitHub"
             >
               <svg
@@ -79,7 +85,7 @@ export const Footer = () => {
             {/* Twitter/X */}
             <a
               href="#"
-              className="text-muted/40 transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-brand"
               aria-label="Twitter"
             >
               <svg
@@ -94,7 +100,7 @@ export const Footer = () => {
             {/* Discord */}
             <a
               href="#"
-              className="text-muted/40 transition-colors hover:text-foreground"
+              className="text-muted/40 transition-colors hover:text-brand"
               aria-label="Discord"
             >
               <svg
