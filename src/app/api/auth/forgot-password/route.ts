@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, passwordResetTokens } from "@/lib/db/schema";
 import { sendPasswordResetEmail } from "@/lib/email";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, gt } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
-
-// In-memory store for reset tokens (replace with DB table in production at scale)
-export const resetTokens = new Map<
-  string,
-  { userId: string; expiresAt: number }
->();
 
 const schema = z.object({
   email: z.string().email(),
@@ -43,10 +37,32 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (user) {
+      // Invalidate any existing unused tokens for this user
+      const existingTokens = await db
+        .select({ id: passwordResetTokens.id })
+        .from(passwordResetTokens)
+        .where(
+          and(
+            eq(passwordResetTokens.userId, user.id),
+            isNull(passwordResetTokens.usedAt),
+            gt(passwordResetTokens.expiresAt, new Date())
+          )
+        );
+
+      // Only allow up to 3 active reset tokens per user
+      if (existingTokens.length >= 3) {
+        return NextResponse.json({
+          message: "If an account with that email exists, a reset link has been sent.",
+        });
+      }
+
       const token = randomBytes(32).toString("hex");
-      resetTokens.set(token, {
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      await db.insert(passwordResetTokens).values({
         userId: user.id,
-        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
+        token,
+        expiresAt,
       });
 
       try {

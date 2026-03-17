@@ -41,8 +41,10 @@ export const createBackup = async (instanceId: string) => {
     })
     .returning();
 
+  let conn: NodeSSH | null = null;
+
   try {
-    const conn = await getSSHConnection();
+    conn = await getSSHConnection();
     const instanceDir = `/opt/taro/instances/${instanceName}`;
 
     // Create backup directory
@@ -50,7 +52,7 @@ export const createBackup = async (instanceId: string) => {
       `mkdir -p /opt/taro/backups/${instanceName}`
     );
 
-    // Stop containers briefly for consistent backup
+    // Pause containers for consistent backup
     await conn.execCommand(`cd ${instanceDir} && docker compose pause`);
 
     // Tar the data directory
@@ -58,7 +60,7 @@ export const createBackup = async (instanceId: string) => {
       `tar -czf ${backupPath} -C ${instanceDir} data/`
     );
 
-    // Resume containers
+    // Resume containers immediately after tar
     await conn.execCommand(`cd ${instanceDir} && docker compose unpause`);
 
     // Get backup size
@@ -81,6 +83,17 @@ export const createBackup = async (instanceId: string) => {
 
     return { ...backup, size, status: "completed" as const };
   } catch (error) {
+    // Always unpause containers and dispose SSH on error
+    if (conn) {
+      try {
+        const instanceDir = `/opt/taro/instances/${instanceName}`;
+        await conn.execCommand(`cd ${instanceDir} && docker compose unpause 2>/dev/null`);
+      } catch {
+        // best-effort unpause
+      }
+      conn.dispose();
+    }
+
     await db
       .update(backups)
       .set({ status: "failed" })
@@ -122,14 +135,39 @@ export const restoreBackup = async (
   const conn = await getSSHConnection();
 
   try {
+    // Verify backup file exists before touching anything
+    const fileCheck = await conn.execCommand(`test -f ${backup.storagePath} && echo exists`);
+    if (fileCheck.stdout.trim() !== "exists") {
+      throw new Error("Backup file not found on server");
+    }
+
     // Stop containers
     await conn.execCommand(`cd ${instanceDir} && docker compose stop`);
 
-    // Remove current data and restore from backup
-    await conn.execCommand(`rm -rf ${instanceDir}/data`);
+    // Extract to a temporary directory first (safe restore)
+    await conn.execCommand(`rm -rf ${instanceDir}/data-restore`);
     await conn.execCommand(
-      `tar -xzf ${backup.storagePath} -C ${instanceDir}`
+      `tar -xzf ${backup.storagePath} -C ${instanceDir} --one-top-level=data-restore`
     );
+
+    // Verify extraction succeeded
+    const extractCheck = await conn.execCommand(`test -d ${instanceDir}/data-restore/data && echo ok`);
+    if (extractCheck.stdout.trim() === "ok") {
+      // Swap: old data -> data-old, restored -> data
+      await conn.execCommand(`mv ${instanceDir}/data ${instanceDir}/data-old`);
+      await conn.execCommand(`mv ${instanceDir}/data-restore/data ${instanceDir}/data`);
+      await conn.execCommand(`rm -rf ${instanceDir}/data-old ${instanceDir}/data-restore`);
+    } else {
+      // Tar might extract directly without nested data/ — check flat extraction
+      const flatCheck = await conn.execCommand(`test -d ${instanceDir}/data-restore && echo ok`);
+      if (flatCheck.stdout.trim() === "ok") {
+        await conn.execCommand(`mv ${instanceDir}/data ${instanceDir}/data-old`);
+        await conn.execCommand(`mv ${instanceDir}/data-restore ${instanceDir}/data`);
+        await conn.execCommand(`rm -rf ${instanceDir}/data-old`);
+      } else {
+        throw new Error("Backup extraction produced unexpected structure");
+      }
+    }
 
     // Restart containers
     await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
@@ -142,8 +180,13 @@ export const restoreBackup = async (
       `Restored from backup ${backupId}`
     );
   } catch (error) {
-    // Try to restart even on failure
-    await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+    // Try to restart even on failure, clean up temp dirs
+    try {
+      await conn.execCommand(`rm -rf ${instanceDir}/data-restore`);
+      await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+    } catch {
+      // best-effort recovery
+    }
     conn.dispose();
     throw error;
   }

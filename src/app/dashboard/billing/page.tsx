@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
   CreditCard,
+  Loader2,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -29,14 +31,64 @@ const itemVariants = {
   },
 };
 
-const currentPlanName = "Hobby";
-
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function BillingPage() {
-  useDashboard();
+  const { token } = useDashboard();
+  const [currentPlanName, setCurrentPlanName] = useState<string>("Hobby");
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/billing", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          const plan = data.data.plan;
+          setCurrentPlanName(
+            plan === "pro" ? "Pro" : plan === "teams" ? "Teams" : "Hobby"
+          );
+          setHasSubscription(!!data.data.hasSubscription);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const handleManageBilling = async () => {
+    if (!token) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/billing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: hasSubscription ? "portal" : "checkout" }),
+      });
+      const data = await res.json();
+      if (data.data?.url) {
+        window.location.href = data.data.url;
+      }
+    } catch {
+      // handled silently
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-600" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -83,11 +135,26 @@ export default function BillingPage() {
               <p className="text-xl font-bold">{currentPlanName}</p>
             </div>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="font-mono text-4xl font-bold text-emerald-400">
-              ${PLANS.find((p) => p.name === currentPlanName)?.price ?? 0}
-            </span>
-            <span className="font-mono text-sm text-zinc-600">/mo</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-baseline gap-1">
+              <span className="font-mono text-4xl font-bold text-emerald-400">
+                ${PLANS.find((p) => p.name === currentPlanName)?.price ?? 0}
+              </span>
+              <span className="font-mono text-sm text-zinc-600">/mo</span>
+            </div>
+            <button
+              onClick={handleManageBilling}
+              disabled={actionLoading}
+              className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              {actionLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : hasSubscription ? (
+                "MANAGE SUBSCRIPTION"
+              ) : (
+                "SUBSCRIBE"
+              )}
+            </button>
           </div>
         </div>
       </motion.div>

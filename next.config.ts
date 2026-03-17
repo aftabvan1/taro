@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.stripe.com wss://*.taro.sh wss://*.instances.taro.sh; frame-src https://*.stripe.com; img-src 'self' data: blob:; font-src 'self' data:;",
+          },
         ],
       },
     ];

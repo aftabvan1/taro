@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, passwordResetTokens } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, gt } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
-import { resetTokens } from "@/app/api/auth/forgot-password/route";
 
 const schema = z.object({
   token: z.string().min(1),
@@ -30,9 +29,20 @@ export async function POST(req: NextRequest) {
 
     const { token, password } = parsed.data;
 
-    const entry = resetTokens.get(token);
-    if (!entry || entry.expiresAt < Date.now()) {
-      resetTokens.delete(token);
+    // Look up the token in the database
+    const [entry] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.token, token),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!entry) {
       return NextResponse.json(
         { error: "Invalid or expired reset token" },
         { status: 400 }
@@ -45,8 +55,11 @@ export async function POST(req: NextRequest) {
       .set({ passwordHash })
       .where(eq(users.id, entry.userId));
 
-    // Consume the token
-    resetTokens.delete(token);
+    // Mark the token as used
+    await db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.id, entry.id));
 
     return NextResponse.json({ message: "Password reset successfully" });
   } catch (error) {

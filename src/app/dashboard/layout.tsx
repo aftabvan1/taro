@@ -225,10 +225,85 @@ export default function DashboardLayout({
     }
   }, [fetchInstances, router]);
 
+  // Token refresh: refresh JWT 5 minutes before expiry
+  useEffect(() => {
+    if (!token) return;
+
+    const scheduleRefresh = () => {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const expiresAt = (payload.exp ?? 0) * 1000;
+        const refreshIn = expiresAt - Date.now() - 5 * 60 * 1000; // 5 min before expiry
+
+        if (refreshIn <= 0) {
+          // Token already near expiry, refresh now
+          doRefresh();
+          return;
+        }
+
+        const timer = setTimeout(doRefresh, refreshIn);
+        return () => clearTimeout(timer);
+      } catch {
+        // invalid token, ignore
+      }
+    };
+
+    const doRefresh = async () => {
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) return;
+
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.token) {
+            localStorage.setItem("token", data.data.token);
+            setToken(data.data.token);
+          }
+          if (data.data?.refreshToken) {
+            localStorage.setItem("refreshToken", data.data.refreshToken);
+          }
+        } else {
+          // Refresh failed — force re-login
+          localStorage.removeItem("token");
+          localStorage.removeItem("refreshToken");
+          router.replace("/");
+        }
+      } catch {
+        // Network error, will retry on next schedule
+      }
+    };
+
+    const cleanup = scheduleRefresh();
+    return cleanup;
+  }, [token, router]);
+
+  // Re-fetch subscription status on visibility change (returning from Stripe)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && token) {
+        fetch("/api/billing", { headers: { Authorization: `Bearer ${token}` } })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.data?.hasSubscription) setHasSubscription(true);
+          })
+          .catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [token]);
+
   const instance = instances[0] ?? null;
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     router.replace("/");
   };
 

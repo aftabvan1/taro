@@ -5,14 +5,19 @@ import { users, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { verifyPassword } from "@/lib/auth";
 import { deleteInstance } from "@/lib/provisioner";
+import { getStripe } from "@/lib/stripe";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
   password: z.string().min(1),
 });
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { windowMs: 15 * 60 * 1000, max: 3 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -28,7 +33,11 @@ export async function POST(req: NextRequest) {
     }
 
     const [user] = await db
-      .select({ id: users.id, passwordHash: users.passwordHash })
+      .select({
+        id: users.id,
+        passwordHash: users.passwordHash,
+        stripeSubscriptionId: users.stripeSubscriptionId,
+      })
       .from(users)
       .where(eq(users.id, auth.userId))
       .limit(1);
@@ -43,6 +52,16 @@ export async function POST(req: NextRequest) {
         { error: "Incorrect password" },
         { status: 401 }
       );
+    }
+
+    // Cancel Stripe subscription if active
+    if (user.stripeSubscriptionId) {
+      try {
+        await getStripe().subscriptions.cancel(user.stripeSubscriptionId);
+        logger.info(`Canceled Stripe subscription ${user.stripeSubscriptionId} for user ${user.id}`);
+      } catch (err) {
+        logger.error("Failed to cancel Stripe subscription during account deletion:", err);
+      }
     }
 
     // Clean up any running instances on the server

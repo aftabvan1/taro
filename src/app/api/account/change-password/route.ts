@@ -6,6 +6,7 @@ import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { verifyPassword, hashPassword } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
   currentPassword: z.string().min(1),
@@ -13,6 +14,9 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { windowMs: 15 * 60 * 1000, max: 5 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 

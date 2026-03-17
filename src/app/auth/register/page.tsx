@@ -108,6 +108,9 @@ export default function RegisterPage() {
       }
 
       localStorage.setItem("token", json.data.token);
+      if (json.data.refreshToken) {
+        localStorage.setItem("refreshToken", json.data.refreshToken);
+      }
       router.push("/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");

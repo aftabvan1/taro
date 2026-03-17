@@ -30,7 +30,9 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(backups.createdAt))
       .limit(30);
 
-    return NextResponse.json({ data: userBackups });
+    // Strip storagePath to avoid leaking server directory structure
+    const sanitized = userBackups.map(({ storagePath: _, ...rest }) => rest);
+    return NextResponse.json({ data: sanitized });
   } catch (error) {
     logger.error("List backups error:", error);
     return NextResponse.json(

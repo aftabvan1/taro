@@ -8,8 +8,6 @@ import { seedInstanceData } from "@/lib/seed-instance";
 import { logger } from "@/lib/logger";
 import { validateShellName, validatePort } from "@/lib/shell-sanitize";
 
-const ssh = new NodeSSH();
-
 const PORT_BASE = 10000;
 const PORT_STRIDE = 10; // each instance gets 10 ports
 
@@ -20,20 +18,38 @@ interface ProvisionResult {
   containerName: string;
 }
 
+/**
+ * Create a fresh SSH connection per operation to prevent
+ * command interleaving across concurrent operations.
+ */
 const getSSHConnection = async () => {
-  if (ssh.isConnected()) return ssh;
-
-  await ssh.connect({
+  const conn = new NodeSSH();
+  await conn.connect({
     host: process.env.HETZNER_SERVER_IP!,
     username: "root",
     privateKey: process.env.HETZNER_SSH_PRIVATE_KEY!,
   });
-
-  return ssh;
+  return conn;
 };
 
-const allocatePort = async (instanceIndex: number) => {
-  const base = PORT_BASE + instanceIndex * PORT_STRIDE;
+/**
+ * Allocate ports based on the highest currently-used port in the DB,
+ * avoiding collisions from concurrent provisioning.
+ */
+const allocatePorts = async () => {
+  const allInstances = await db
+    .select({ openclawPort: instances.openclawPort })
+    .from(instances);
+
+  // Find the highest allocated openclaw port
+  let maxPort = PORT_BASE - PORT_STRIDE;
+  for (const inst of allInstances) {
+    if (inst.openclawPort && inst.openclawPort > maxPort) {
+      maxPort = inst.openclawPort;
+    }
+  }
+
+  const base = maxPort + PORT_STRIDE;
   return {
     openclaw: base,
     ttyd: base + 1,
@@ -129,10 +145,8 @@ export const provisionInstance = async (
   const conn = await getSSHConnection();
   const serverIp = process.env.HETZNER_SERVER_IP!;
 
-  // Get instance index for port allocation
-  const allInstances = await db.select({ id: instances.id }).from(instances);
-  const instanceIndex = allInstances.findIndex((i) => i.id === instanceId);
-  const ports = await allocatePort(instanceIndex >= 0 ? instanceIndex : allInstances.length);
+  // Allocate ports based on highest currently-used port
+  const ports = await allocatePorts();
 
   const containerName = `taro-${instanceName}`;
   const instanceDir = `/opt/taro/instances/${instanceName}`;
@@ -140,13 +154,18 @@ export const provisionInstance = async (
   // Create instance directory and config
   await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config`);
 
-  // Write OpenClaw config (no auth for seamless Web Chat access via HTTPS proxy)
+  // Write OpenClaw config with token-based auth
+  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const openclawConfig = JSON.stringify({
     gateway: {
       controlUi: {
-        allowedOrigins: [`https://${serverIp}`, `http://${serverIp}:${ports.openclaw}`, "http://localhost:3000"],
+        allowedOrigins: [
+          `https://${instanceName}.${instanceDomain}`,
+          appUrl,
+        ],
       },
-      auth: { mode: "none" },
+      auth: { mode: "token", token: mcAuthToken },
     },
   }, null, 2);
   await conn.execCommand(
@@ -219,7 +238,6 @@ systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemc
 
   // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy
   // ttyd requires a terminal token query param for authentication
-  const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taro.sh";
   const openclawDomain = `${instanceName}.${instanceDomain}`;
   const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
   await conn.execCommand(
@@ -262,6 +280,8 @@ systemctl reload caddy`
     "deploy",
     `Instance provisioned on ${serverIp} (ports ${ports.openclaw}/${ports.ttyd}/${ports.mc})`
   );
+
+  conn.dispose();
 
   return {
     openclawPort: ports.openclaw,
@@ -419,6 +439,8 @@ systemctl reload caddy`
     "deploy",
     `Instance reprovisioned with updated terminal config`
   );
+
+  conn.dispose();
 };
 
 /**
@@ -435,63 +457,79 @@ export const updateSyncDaemon = async (
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
-  // Check if sync daemon service exists
-  const serviceCheck = await conn.execCommand(
-    `test -f /etc/systemd/system/taro-sync-${instanceName}.service && echo exists`
-  );
+  try {
+    // Check if sync daemon service exists
+    const serviceCheck = await conn.execCommand(
+      `test -f /etc/systemd/system/taro-sync-${instanceName}.service && echo exists`
+    );
 
-  if (serviceCheck.stdout.trim() !== "exists") {
-    // Sync daemon was never deployed — do full deploy
-    if (!instanceId || !mcPort) {
-      throw new Error("Sync daemon not deployed and missing instanceId/mcPort for deployment");
+    if (serviceCheck.stdout.trim() !== "exists") {
+      // Sync daemon was never deployed — do full deploy
+      if (!instanceId || !mcPort) {
+        throw new Error("Sync daemon not deployed and missing instanceId/mcPort for deployment");
+      }
+      await deploySyncDaemon(conn, instanceName, instanceId, mcPort);
+      return;
     }
-    await deploySyncDaemon(conn, instanceName, instanceId, mcPort);
-    return;
-  }
 
-  // Write the updated sync script
-  const fs = await import("fs");
-  const path = await import("path");
-  const syncScriptPath = path.join(process.cwd(), "docker/scripts/openclaw-sync.mjs");
-  const syncScript = fs.readFileSync(syncScriptPath, "utf-8");
-  await conn.execCommand(
-    `cat > ${instanceDir}/sync/openclaw-sync.mjs << 'SYNCEOF'
+    // Write the updated sync script
+    const fs = await import("fs");
+    const path = await import("path");
+    const syncScriptPath = path.join(process.cwd(), "docker/scripts/openclaw-sync.mjs");
+    const syncScript = fs.readFileSync(syncScriptPath, "utf-8");
+    await conn.execCommand(
+      `cat > ${instanceDir}/sync/openclaw-sync.mjs << 'SYNCEOF'
 ${syncScript}
 SYNCEOF`
-  );
+    );
 
-  // Restart the sync daemon to pick up changes
-  await conn.execCommand(`systemctl restart taro-sync-${instanceName}`);
+    // Restart the sync daemon to pick up changes
+    await conn.execCommand(`systemctl restart taro-sync-${instanceName}`);
+  } finally {
+    conn.dispose();
+  }
 };
 
 export const stopInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
   validateShellName(instanceName, "instance name");
-  await conn.execCommand(
-    `cd /opt/taro/instances/${instanceName} && docker compose stop`
-  );
-  await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null`);
+  try {
+    await conn.execCommand(
+      `cd /opt/taro/instances/${instanceName} && docker compose stop`
+    );
+    await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null`);
+  } finally {
+    conn.dispose();
+  }
 };
 
 export const startInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
   validateShellName(instanceName, "instance name");
-  await conn.execCommand(
-    `cd /opt/taro/instances/${instanceName} && docker compose start`
-  );
-  await conn.execCommand(`systemctl start taro-sync-${instanceName} 2>/dev/null`);
+  try {
+    await conn.execCommand(
+      `cd /opt/taro/instances/${instanceName} && docker compose start`
+    );
+    await conn.execCommand(`systemctl start taro-sync-${instanceName} 2>/dev/null`);
+  } finally {
+    conn.dispose();
+  }
 };
 
 export const restartInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
   const instanceName = containerName.replace("taro-", "");
   validateShellName(instanceName, "instance name");
-  await conn.execCommand(
-    `cd /opt/taro/instances/${instanceName} && docker compose restart`
-  );
-  await conn.execCommand(`systemctl restart taro-sync-${instanceName} 2>/dev/null`);
+  try {
+    await conn.execCommand(
+      `cd /opt/taro/instances/${instanceName} && docker compose restart`
+    );
+    await conn.execCommand(`systemctl restart taro-sync-${instanceName} 2>/dev/null`);
+  } finally {
+    conn.dispose();
+  }
 };
 
 export const deleteInstance = async (containerName: string) => {
@@ -499,12 +537,16 @@ export const deleteInstance = async (containerName: string) => {
   const instanceName = containerName.replace("taro-", "");
   validateShellName(instanceName, "instance name");
   const instanceDir = `/opt/taro/instances/${instanceName}`;
-  await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
-  await conn.execCommand(`rm -rf ${instanceDir}`);
-  // Clean up systemd services (ttyd, sync) and Caddy site config
-  await conn.execCommand(
-    `systemctl stop taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; rm -f /etc/caddy/sites/${instanceName}.caddy; systemctl daemon-reload; systemctl reload caddy 2>/dev/null`
-  );
+  try {
+    await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
+    await conn.execCommand(`rm -rf ${instanceDir}`);
+    // Clean up systemd services (ttyd, sync) and Caddy site config
+    await conn.execCommand(
+      `systemctl stop taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; rm -f /etc/caddy/sites/${instanceName}.caddy; systemctl daemon-reload; systemctl reload caddy 2>/dev/null`
+    );
+  } finally {
+    conn.dispose();
+  }
 };
 
 export interface ContainerStats {
@@ -520,35 +562,39 @@ export const getInstanceStats = async (
 ): Promise<ContainerStats> => {
   validateShellName(containerName.replace("taro-", ""), "container name");
   const conn = await getSSHConnection();
-  const result = await conn.execCommand(
-    `docker stats ${containerName}-openclaw --no-stream --format '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","net":"{{.NetIO}}"}'`
-  );
-
-  if (result.code !== 0) {
-    throw new Error(`Failed to get stats: ${result.stderr}`);
-  }
-
   try {
-    const raw = JSON.parse(result.stdout.trim());
-    const cpuPercent = parseFloat(raw.cpu.replace("%", ""));
+    const result = await conn.execCommand(
+      `docker stats ${containerName}-openclaw --no-stream --format '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","net":"{{.NetIO}}"}'`
+    );
 
-    const memParts = raw.mem.split(" / ");
-    const memoryUsageMB = parseMemory(memParts[0]);
-    const memoryLimitMB = parseMemory(memParts[1]);
+    if (result.code !== 0) {
+      throw new Error(`Failed to get stats: ${result.stderr}`);
+    }
 
-    const netParts = raw.net.split(" / ");
-    const networkRxMB = parseMemory(netParts[0]);
-    const networkTxMB = parseMemory(netParts[1]);
+    try {
+      const raw = JSON.parse(result.stdout.trim());
+      const cpuPercent = parseFloat(raw.cpu.replace("%", ""));
 
-    return { cpuPercent, memoryUsageMB, memoryLimitMB, networkRxMB, networkTxMB };
-  } catch {
-    return {
-      cpuPercent: 0,
-      memoryUsageMB: 0,
-      memoryLimitMB: 0,
-      networkRxMB: 0,
-      networkTxMB: 0,
-    };
+      const memParts = raw.mem.split(" / ");
+      const memoryUsageMB = parseMemory(memParts[0]);
+      const memoryLimitMB = parseMemory(memParts[1]);
+
+      const netParts = raw.net.split(" / ");
+      const networkRxMB = parseMemory(netParts[0]);
+      const networkTxMB = parseMemory(netParts[1]);
+
+      return { cpuPercent, memoryUsageMB, memoryLimitMB, networkRxMB, networkTxMB };
+    } catch {
+      return {
+        cpuPercent: 0,
+        memoryUsageMB: 0,
+        memoryLimitMB: 0,
+        networkRxMB: 0,
+        networkTxMB: 0,
+      };
+    }
+  } finally {
+    conn.dispose();
   }
 };
 
