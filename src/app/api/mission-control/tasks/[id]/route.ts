@@ -39,6 +39,8 @@ export async function PATCH(
   if (body.title !== undefined) updates.title = body.title;
   if (body.description !== undefined) updates.description = body.description;
   if (body.agent_name !== undefined) updates.agentName = body.agent_name;
+  if (body.due_date !== undefined)
+    updates.dueDate = body.due_date ? new Date(body.due_date) : null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -100,6 +102,7 @@ export async function PATCH(
     due_date: updated.dueDate?.toISOString() ?? null,
     openclaw_session_id: updated.openclawSessionId ?? null,
     dispatched_at: updated.dispatchedAt?.toISOString() ?? null,
+    dispatch_output: updated.dispatchOutput ?? null,
     created_at: updated.createdAt.toISOString(),
   });
 }

@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
 import { ConnectionStatus } from "@/components/dashboard/connection-status";
-import type { MCAgent, MCApproval, OpenClawSession } from "@/lib/mission-control/types";
+import type { MCAgent, OpenClawSession } from "@/lib/mission-control/types";
 
 // ---------------------------------------------------------------------------
 // Animation variants
@@ -523,10 +523,8 @@ export default function AgentsPage() {
   const router = useRouter();
   const { instance, token } = useDashboard();
   const [agents, setAgents] = useState<MCAgent[]>([]);
-  const [approvals, setApprovals] = useState<MCApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actioning, setActioning] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const visibilityRef = useRef(true);
@@ -537,21 +535,12 @@ export default function AgentsPage() {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const [agentsRes, approvalsRes] = await Promise.all([
-          fetch("/api/mission-control/agents", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch("/api/mission-control/approvals", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-        if (!agentsRes.ok || !approvalsRes.ok) throw new Error("Failed to fetch");
+        const agentsRes = await fetch("/api/mission-control/agents", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!agentsRes.ok) throw new Error("Failed to fetch");
         const agentsData = await agentsRes.json();
-        const approvalsData = await approvalsRes.json();
         setAgents(agentsData);
-        setApprovals(
-          (approvalsData as MCApproval[]).filter((a) => a.status === "pending")
-        );
       } catch {
         if (!silent) setError("Could not connect to Mission Control");
       } finally {
@@ -579,31 +568,10 @@ export default function AgentsPage() {
     };
   }, [fetchData]);
 
-  async function handleApproval(id: string, action: "approve" | "deny") {
-    if (!token) return;
-    setActioning((prev) => new Set(prev).add(id));
-    try {
-      await fetch(`/api/mission-control/approvals/${id}/${action}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setApprovals((prev) => prev.filter((a) => a.id !== id));
-    } catch {
-      // will refresh on next poll
-    } finally {
-      setActioning((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
-  }
-
   // Stats
   const totalAgents = agents.length;
   const activeAgents = agents.filter((a) => a.status === "active").length;
   const totalTasks = agents.reduce((sum, a) => sum + a.tasks_completed, 0);
-  const pendingApprovals = approvals.length;
 
   if (loading) {
     return (
@@ -664,12 +632,6 @@ export default function AgentsPage() {
             value: totalTasks,
             icon: Activity,
             accent: "text-cyan-400",
-          },
-          {
-            label: "APPROVALS",
-            value: pendingApprovals,
-            icon: ShieldAlert,
-            accent: pendingApprovals > 0 ? "text-amber-400" : "text-zinc-500",
           },
         ].map((stat) => (
           <motion.div
@@ -889,104 +851,6 @@ export default function AgentsPage() {
           </motion.div>
         </>
       )}
-
-      {/* ---- Pending Approvals ---- */}
-      <AnimatePresence>
-        {approvals.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="space-y-3"
-          >
-            <div className="flex items-center gap-2">
-              <div className="h-px flex-1 bg-gradient-to-r from-amber-500/20 to-transparent" />
-              <ShieldAlert className="h-4 w-4 text-amber-400" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-amber-500/70">
-                Pending Approvals
-              </span>
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400">
-                {approvals.length}
-              </span>
-              <div className="h-px flex-1 bg-gradient-to-l from-amber-500/20 to-transparent" />
-            </div>
-
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="space-y-2"
-            >
-              {approvals.map((approval) => (
-                <motion.div
-                  key={approval.id}
-                  variants={itemVariants}
-                  className="relative overflow-hidden rounded-lg border border-amber-500/15 bg-[#0c0c0d]"
-                >
-                  <div
-                    className="pointer-events-none absolute inset-0 z-10 opacity-[0.02]"
-                    style={{
-                      backgroundImage:
-                        "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(245,158,11,0.15) 2px, rgba(245,158,11,0.15) 4px)",
-                    }}
-                  />
-
-                  <div className="relative z-20 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Bot className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="font-mono text-sm font-bold text-zinc-200">
-                          {approval.agent_name}
-                        </span>
-                        <span className="rounded border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 font-mono text-[10px] text-zinc-500">
-                          {approval.action}
-                        </span>
-                      </div>
-                      <div className="mt-2 rounded-md border border-white/[0.06] bg-black/40 px-3 py-2">
-                        <code className="font-mono text-xs text-amber-300/80">
-                          {approval.command}
-                        </code>
-                      </div>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 text-zinc-700" />
-                        <span className="font-mono text-[10px] text-zinc-600">
-                          {relativeTime(approval.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => handleApproval(approval.id, "approve")}
-                        disabled={actioning.has(approval.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_12px_rgba(16,185,129,0.2)] disabled:opacity-50"
-                      >
-                        {actioning.has(approval.id) ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        )}
-                        APPROVE
-                      </button>
-                      <button
-                        onClick={() => handleApproval(approval.id, "deny")}
-                        disabled={actioning.has(approval.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 font-mono text-xs font-bold text-red-400 transition-all hover:bg-red-500/20 hover:shadow-[0_0_12px_rgba(239,68,68,0.2)] disabled:opacity-50"
-                      >
-                        {actioning.has(approval.id) ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <XCircle className="h-3.5 w-3.5" />
-                        )}
-                        DENY
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ---- Create Agent Modal ---- */}
       <AnimatePresence>

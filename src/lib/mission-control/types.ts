@@ -59,16 +59,6 @@ export interface MCActivityEntry {
   created_at: string;
 }
 
-export interface MCApproval {
-  id: string;
-  agent_name: string;
-  action: string;
-  command: string;
-  status: "pending" | "approved" | "denied";
-  openclaw_approval_id?: string;
-  created_at: string;
-}
-
 export interface MCCustomField {
   id: string;
   name: string;

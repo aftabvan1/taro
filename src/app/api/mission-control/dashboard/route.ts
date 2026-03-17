@@ -4,7 +4,6 @@ import {
   mcAgents,
   mcTasks,
   mcBoards,
-  mcApprovals,
   mcActivity,
   instances,
 } from "@/lib/db/schema";
@@ -29,8 +28,7 @@ export async function GET(req: NextRequest) {
         inbox: 0,
         inProgress: 0,
         review: 0,
-        pendingApprovals: 0,
-      },
+        },
       taskBreakdown: { inbox: 0, todo: 0, in_progress: 0, review: 0, done: 0 },
       recentActivity: [],
     });
@@ -68,14 +66,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Approvals
-  const pendingApprovals = await db
-    .select({ id: mcApprovals.id })
-    .from(mcApprovals)
-    .where(eq(mcApprovals.instanceId, instance.id));
-
-  const pendingCount = pendingApprovals.length;
-
   // Recent activity
   const recentActivity = await db
     .select()
@@ -91,7 +81,6 @@ export async function GET(req: NextRequest) {
       inbox: taskBreakdown.inbox,
       inProgress: taskBreakdown.in_progress,
       review: taskBreakdown.review,
-      pendingApprovals: pendingCount,
     },
     taskBreakdown,
     recentActivity: recentActivity.map((a) => ({

@@ -50,6 +50,11 @@ export async function execSyncDaemon(
     return { ok: false, status: 500, data: { error: "SSH not configured" } };
   }
 
+  // Validate path to prevent shell injection
+  if (!/^\/[a-zA-Z0-9/_\-:.?=&%]*$/.test(options.path)) {
+    return { ok: false, status: 400, data: { error: "Invalid path" } };
+  }
+
   const ssh = new NodeSSH();
   try {
     await ssh.connect({
@@ -67,8 +72,12 @@ export async function execSyncDaemon(
       curlCmd = `curl -s --connect-timeout 3 --max-time 8 -w '\\n%{http_code}' -X POST http://127.0.0.1:${mcPort}${options.path} -H 'Content-Type: application/json' -d '${bodyJson}'`;
     }
 
-    const result = await ssh.execCommand(curlCmd);
-    ssh.dispose();
+    const result = await Promise.race([
+      ssh.execCommand(curlCmd),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("SSH execCommand timeout")), 12000)
+      ),
+    ]);
 
     if (result.code !== 0) {
       console.error(`[execSyncDaemon] SSH command failed on port ${mcPort}${options.path}:`, result.stderr);
@@ -98,11 +107,12 @@ export async function execSyncDaemon(
     };
   } catch (err) {
     console.error(`[execSyncDaemon] SSH error for port ${mcPort}${options.path}:`, (err as Error).message);
-    ssh.dispose();
     return {
       ok: false,
       status: 502,
       data: { error: `SSH error: ${(err as Error).message}` },
     };
+  } finally {
+    ssh.dispose();
   }
 }

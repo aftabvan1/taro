@@ -3,7 +3,6 @@ import type {
   MCBoard,
   MCTask,
   MCActivityEntry,
-  MCApproval,
 } from "./types";
 
 export class MissionControlClient {
@@ -57,21 +56,6 @@ export class MissionControlClient {
     return this.request<MCActivityEntry[]>(`/api/activity?limit=${limit}`);
   }
 
-  async getApprovals(): Promise<MCApproval[]> {
-    return this.request<MCApproval[]>("/api/approvals");
-  }
-
-  async approveAction(approvalId: string): Promise<void> {
-    await this.request(`/api/approvals/${approvalId}/approve`, {
-      method: "POST",
-    });
-  }
-
-  async denyAction(approvalId: string): Promise<void> {
-    await this.request(`/api/approvals/${approvalId}/deny`, {
-      method: "POST",
-    });
-  }
 }
 
 export const createMCClient = (

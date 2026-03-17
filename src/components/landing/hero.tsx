@@ -55,7 +55,7 @@ export const Hero = () => {
         >
           The first managed OpenClaw platform with a built-in mission control
           dashboard. Deploy agents in 30 seconds — then actually govern them
-          with approvals, audit logs, and real-time oversight.
+          with task boards, audit logs, and real-time oversight.
         </motion.p>
 
         {/* CTAs */}

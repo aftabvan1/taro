@@ -19,7 +19,6 @@ import {
   Menu,
   X,
   ExternalLink,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
@@ -113,8 +112,7 @@ function buildNavItems(): NavItem[] {
     { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", section: "Mission Control" },
     { label: "Agents", icon: Bot, href: "/dashboard/agents", section: "Mission Control" },
     { label: "Boards", icon: LayoutGrid, href: "/dashboard/boards", section: "Mission Control" },
-    { label: "Approvals", icon: ShieldCheck, href: "/dashboard/approvals", section: "Mission Control" },
-    { label: "Live Feed", icon: Radio, href: "/dashboard/live-feed", section: "Mission Control" },
+{ label: "Live Feed", icon: Radio, href: "/dashboard/live-feed", section: "Mission Control" },
 
     // TOOLS
     { label: "Terminal", icon: Terminal, href: "/dashboard/terminal", section: "Tools" },

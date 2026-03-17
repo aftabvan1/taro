@@ -23,7 +23,7 @@ export const PLANS = [
       "Full terminal access",
       "Hourly automated backups",
       "Unlimited skills",
-      "Mission Control: approvals & timeline",
+      "Mission Control: activity timeline",
       "Resource monitoring dashboard",
       "Custom domain",
       "Priority support",
@@ -60,7 +60,7 @@ export const FEATURES = [
   {
     title: "Mission Control",
     description:
-      "The only hosting platform with a built-in governance layer. Manage agents, approvals, and audit trails from one dashboard.",
+      "The only hosting platform with a built-in governance layer. Manage agents, tasks, and audit trails from one dashboard.",
     icon: "LayoutDashboard",
   },
   {

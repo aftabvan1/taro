@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Loader2,
   ClipboardList,
-  Circle,
   CheckCircle2,
   Bot,
   Calendar,
@@ -22,10 +21,29 @@ import {
   Columns3,
   Inbox,
   Zap,
+  GripVertical,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
 import type { MCBoard, MCTask, MCAgent, MCTag } from "@/lib/mission-control/types";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+
+// ---------------------------------------------------------------------------
+// Animation variants
+// ---------------------------------------------------------------------------
 
 const containerVariants = {
   hidden: {},
@@ -41,6 +59,10 @@ const itemVariants = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -53,6 +75,16 @@ function relativeTime(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function daysUntil(dateStr: string): string {
+  const now = new Date();
+  const due = new Date(dateStr);
+  const diff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return `${Math.abs(diff)}d overdue`;
+  if (diff === 0) return "Due today";
+  if (diff === 1) return "Due tomorrow";
+  return `${diff}d left`;
 }
 
 const priorityConfig = {
@@ -73,13 +105,7 @@ const priorityConfig = {
   },
 } as const;
 
-const statusCycle: Record<string, MCTask["status"]> = {
-  inbox: "in_progress",
-  in_progress: "review",
-  review: "done",
-  done: "inbox",
-  todo: "in_progress",
-};
+const VALID_STATUSES = new Set(["inbox", "todo", "in_progress", "review", "done"]);
 
 const columnConfig = [
   {
@@ -90,6 +116,15 @@ const columnConfig = [
     color: "text-amber-400",
     headerBorder: "border-amber-500/20",
     countBg: "bg-amber-500/10 text-amber-400",
+  },
+  {
+    key: "todo" as const,
+    label: "To Do",
+    icon: ClipboardList,
+    dotColor: "bg-zinc-400",
+    color: "text-zinc-400",
+    headerBorder: "border-zinc-500/20",
+    countBg: "bg-zinc-500/10 text-zinc-400",
   },
   {
     key: "in_progress" as const,
@@ -120,6 +155,513 @@ const columnConfig = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Droppable Column
+// ---------------------------------------------------------------------------
+
+function DroppableColumn({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "space-y-2 min-h-[100px] rounded-lg transition-colors",
+        isOver && "bg-emerald-500/[0.03] ring-1 ring-emerald-500/20"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Draggable Task Card
+// ---------------------------------------------------------------------------
+
+interface DraggableTaskCardProps {
+  task: MCTask;
+  agents: MCAgent[];
+  token: string;
+  onUpdateTask: (taskId: string, updates: Partial<MCTask>) => void;
+  onDispatch: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onOpenDetail: (task: MCTask) => void;
+}
+
+function DraggableTaskCard({
+  task,
+  agents,
+  token,
+  onUpdateTask,
+  onDispatch,
+  onDelete,
+  onOpenDetail,
+}: DraggableTaskCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, data: { task } });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  const priority = priorityConfig[task.priority];
+  const isOverdue =
+    task.due_date &&
+    new Date(task.due_date).getTime() < Date.now() &&
+    task.status !== "done";
+
+  return (
+    <div ref={setNodeRef} style={style} className="group">
+      <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0d] transition-all hover:border-white/10">
+        {/* Priority stripe */}
+        <div className={cn("h-[2px] w-full", priority.stripe)} />
+        <div className="p-3">
+          <div className="flex items-start gap-2">
+            {/* Drag handle */}
+            <button
+              {...attributes}
+              {...listeners}
+              className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-zinc-700 opacity-0 transition-all hover:bg-white/[0.04] hover:text-zinc-500 group-hover:opacity-100 active:cursor-grabbing"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              onClick={() => onOpenDetail(task)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <p className="font-mono text-sm font-medium text-zinc-300 transition-colors hover:text-white">
+                {task.title}
+              </p>
+            </button>
+            <button
+              onClick={() => onDelete(task.id)}
+              className="shrink-0 rounded p-1 text-zinc-700 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+              title="Delete task"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+
+          {/* Description preview */}
+          {task.description && (
+            <p className="mt-1.5 ml-6 line-clamp-2 font-mono text-[10px] text-zinc-500">
+              {task.description}
+            </p>
+          )}
+
+          {/* Dispatch status */}
+          {task.dispatched_at ? (
+            <div className="mt-1.5 ml-6 space-y-1">
+              {task.dispatch_output ? (
+                <div className="flex items-center gap-1 rounded border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 w-fit">
+                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-400" />
+                  <span className="font-mono text-[9px] text-emerald-400">
+                    COMPLETED
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 rounded border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 w-fit">
+                  <Zap className="h-2.5 w-2.5 text-blue-400" />
+                  <span className="font-mono text-[9px] text-blue-400">
+                    DISPATCHED
+                  </span>
+                </div>
+              )}
+              {task.dispatch_output && (
+                <p className="line-clamp-2 font-mono text-[10px] text-zinc-500">
+                  {task.dispatch_output.slice(0, 120)}
+                  {task.dispatch_output.length > 120 ? "..." : ""}
+                </p>
+              )}
+            </div>
+          ) : task.agent_name && task.status !== "done" ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDispatch(task.id);
+              }}
+              className="mt-1.5 ml-6 flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+            >
+              <Zap className="h-3 w-3" />
+              DISPATCH
+            </button>
+          ) : null}
+
+          {/* Bottom row: agent, priority, due date, tags */}
+          <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2">
+            {/* Agent assignment dropdown */}
+            <select
+              value={task.agent_name || ""}
+              onChange={(e) =>
+                onUpdateTask(task.id, { agent_name: e.target.value })
+              }
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "rounded border px-1.5 py-0.5 font-mono text-[10px] outline-none cursor-pointer",
+                task.agent_name
+                  ? "border-emerald-500/15 bg-emerald-500/5 text-emerald-400"
+                  : "border-white/[0.08] bg-transparent text-zinc-600"
+              )}
+            >
+              <option value="">No agent</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.name}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Priority picker */}
+            <select
+              value={task.priority}
+              onChange={(e) =>
+                onUpdateTask(task.id, {
+                  priority: e.target.value as MCTask["priority"],
+                })
+              }
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold outline-none cursor-pointer",
+                priority.badge
+              )}
+            >
+              <option value="low">LOW</option>
+              <option value="medium">MED</option>
+              <option value="high">HIGH</option>
+            </select>
+
+            {/* Tags */}
+            {task.tags && task.tags.length > 0 && (
+              <div className="flex items-center gap-1">
+                {task.tags.map((tag: MCTag) => (
+                  <span
+                    key={tag.id}
+                    className="rounded-full border px-1.5 py-0.5 font-mono text-[9px]"
+                    style={{
+                      backgroundColor: `${tag.color}15`,
+                      borderColor: `${tag.color}30`,
+                      color: tag.color,
+                    }}
+                    title={tag.name}
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Due date */}
+            {task.due_date && (
+              <div
+                className={cn(
+                  "flex items-center gap-1",
+                  isOverdue ? "text-red-400" : "text-zinc-600"
+                )}
+              >
+                <Calendar className="h-3 w-3" />
+                <span className="font-mono text-[10px]">
+                  {daysUntil(task.due_date)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Task Detail Modal
+// ---------------------------------------------------------------------------
+
+interface TaskDetailModalProps {
+  task: MCTask;
+  agents: MCAgent[];
+  token: string;
+  onClose: () => void;
+  onSave: (taskId: string, updates: Record<string, unknown>) => Promise<void>;
+  onDispatch: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+}
+
+function TaskDetailModal({
+  task,
+  agents,
+  token,
+  onClose,
+  onSave,
+  onDispatch,
+  onDelete,
+}: TaskDetailModalProps) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description);
+  const [status, setStatus] = useState(task.status);
+  const [priority, setPriority] = useState(task.priority);
+  const [agentName, setAgentName] = useState(task.agent_name);
+  const [dueDate, setDueDate] = useState(
+    task.due_date ? task.due_date.slice(0, 10) : ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const hasChanges =
+    title !== task.title ||
+    description !== task.description ||
+    status !== task.status ||
+    priority !== task.priority ||
+    agentName !== task.agent_name ||
+    (dueDate || null) !== (task.due_date ? task.due_date.slice(0, 10) : null);
+
+  const handleSave = async () => {
+    if (!hasChanges) return;
+    setSaving(true);
+    const updates: Record<string, unknown> = {};
+    if (title !== task.title) updates.title = title;
+    if (description !== task.description) updates.description = description;
+    if (status !== task.status) updates.status = status;
+    if (priority !== task.priority) updates.priority = priority;
+    if (agentName !== task.agent_name) updates.agent_name = agentName;
+    if ((dueDate || null) !== (task.due_date ? task.due_date.slice(0, 10) : null))
+      updates.due_date = dueDate || null;
+    await onSave(task.id, updates);
+    setSaving(false);
+  };
+
+  const copySessionId = () => {
+    if (task.openclaw_session_id) {
+      navigator.clipboard.writeText(task.openclaw_session_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/[0.08] bg-[#0c0c0d] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Task Detail
+          </span>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-white/[0.04] hover:text-zinc-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          {/* Title */}
+          <div>
+            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-sm text-zinc-200 outline-none focus:border-emerald-500/30"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+              Description / Agent Instructions
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Detailed instructions for the agent..."
+              className="w-full resize-y rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-700 outline-none focus:border-emerald-500/30"
+            />
+          </div>
+
+          {/* Row: Status, Priority, Agent */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) =>
+                  setStatus(e.target.value as MCTask["status"])
+                }
+                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
+              >
+                <option value="inbox">Inbox</option>
+                <option value="in_progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={(e) =>
+                  setPriority(e.target.value as MCTask["priority"])
+                }
+                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+                Agent
+              </label>
+              <select
+                value={agentName}
+                onChange={(e) => setAgentName(e.target.value)}
+                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
+              >
+                <option value="">No agent</option>
+                {agents.map((a) => (
+                  <option key={a.id} value={a.name}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-500/30"
+            />
+          </div>
+
+          {/* Dispatch Info */}
+          {task.dispatched_at && (
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-3 font-mono text-[10px]">
+                {task.dispatch_output ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3" />
+                    COMPLETED
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-blue-400">
+                    <Zap className="h-3 w-3" />
+                    DISPATCHED
+                  </div>
+                )}
+                <div className="flex items-center gap-1 text-zinc-500">
+                  <Clock className="h-3 w-3" />
+                  {relativeTime(task.dispatched_at)}
+                </div>
+                {task.openclaw_session_id && (
+                  <button
+                    onClick={copySessionId}
+                    className="flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-zinc-600 transition-colors hover:text-zinc-400"
+                  >
+                    <Copy className="h-2.5 w-2.5" />
+                    {copied ? "Copied!" : `Session: ${task.openclaw_session_id.slice(0, 16)}...`}
+                  </button>
+                )}
+              </div>
+              {task.dispatch_output && (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-white/[0.06] bg-black/40 p-3">
+                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-zinc-300">
+                    {task.dispatch_output}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3">
+          <button
+            onClick={() => {
+              onDelete(task.id);
+              onClose();
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-mono text-[10px] text-red-400 transition-colors hover:bg-red-500/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            DELETE
+          </button>
+          <div className="flex items-center gap-2">
+            {agentName && !task.dispatched_at && (
+              <button
+                onClick={() => {
+                  onDispatch(task.id);
+                  onClose();
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                DISPATCH
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 disabled:opacity-40"
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              SAVE
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
 export default function BoardsPage() {
   const { instance, token } = useDashboard();
   const [boards, setBoards] = useState<MCBoard[]>([]);
@@ -145,6 +687,19 @@ export default function BoardsPage() {
   const [newTaskAgent, setNewTaskAgent] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
 
+  // Modal state
+  const [detailTask, setDetailTask] = useState<MCTask | null>(null);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
+
+  // Drag state
+  const [activeTask, setActiveTask] = useState<MCTask | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Data fetching
+  // ---------------------------------------------------------------------------
 
   const fetchBoards = useCallback(async () => {
     if (!instance || !token) return;
@@ -213,6 +768,44 @@ export default function BoardsPage() {
     };
   }, [selectedBoard, fetchTasks, fetchAgents]);
 
+  // ---------------------------------------------------------------------------
+  // Task actions
+  // ---------------------------------------------------------------------------
+
+  async function patchTask(taskId: string, body: Record<string, unknown>) {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/mission-control/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t))
+        );
+        // Update detail modal if open
+        if (detailTask?.id === taskId) {
+          setDetailTask((prev) => (prev ? { ...prev, ...updated } : null));
+        }
+      }
+    } catch {
+      // will refresh on next poll
+    }
+  }
+
+  function handleUpdateTask(taskId: string, updates: Partial<MCTask>) {
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
+    );
+    patchTask(taskId, updates);
+  }
+
   async function handleCreateBoard() {
     if (!token || !newBoardName.trim()) return;
     setCreatingBoard(true);
@@ -274,57 +867,10 @@ export default function BoardsPage() {
     }
   }
 
-  async function handleUpdateTaskAgent(taskId: string, agentName: string) {
-    if (!token) return;
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, agent_name: agentName } : t
-      )
-    );
-    try {
-      await fetch(`/api/mission-control/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ agent_name: agentName }),
-      });
-    } catch {
-      // Revert on error — will refresh on next poll
-    }
-  }
-
-  async function handleCycleStatus(task: MCTask) {
-    if (!token) return;
-    const nextStatus = statusCycle[task.status] || "inbox";
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id ? { ...t, status: nextStatus } : t
-      )
-    );
-    try {
-      await fetch(`/api/mission-control/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-    } catch {
-      // Revert on error
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t))
-      );
-    }
-  }
-
   async function handleDeleteTask(taskId: string) {
     if (!token) return;
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setDetailTask((prev) => (prev?.id === taskId ? null : prev));
     try {
       await fetch(`/api/mission-control/tasks/${taskId}`, {
         method: "DELETE",
@@ -334,9 +880,6 @@ export default function BoardsPage() {
       // will refresh on next poll
     }
   }
-
-  const [dispatchError, setDispatchError] = useState<string | null>(null);
-  const [viewingOutput, setViewingOutput] = useState<MCTask | null>(null);
 
   async function handleDispatchTask(taskId: string) {
     if (!token) return;
@@ -370,21 +913,63 @@ export default function BoardsPage() {
     }
   }
 
-  // Get unique agent names from tasks for the agents panel
-  const boardAgentNames = [...new Set(tasks.map((t) => t.agent_name).filter(Boolean))];
+  // ---------------------------------------------------------------------------
+  // Drag & Drop
+  // ---------------------------------------------------------------------------
+
+  function handleDragStart(event: DragStartEvent) {
+    const task = tasks.find((t) => t.id === event.active.id);
+    if (task) setActiveTask(task);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveTask(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+
+    // Only accept drops on valid column targets, not on other task cards
+    if (!VALID_STATUSES.has(overId)) return;
+
+    const newStatus = overId as MCTask["status"];
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+
+    // Optimistic update + PATCH
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    );
+    patchTask(taskId, { status: newStatus });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Board agents panel
+  // ---------------------------------------------------------------------------
+
+  const boardAgentNames = [
+    ...new Set(tasks.map((t) => t.agent_name).filter(Boolean)),
+  ];
   const boardAgents = agents.filter((a) => boardAgentNames.includes(a.name));
-  // If we don't have agent data yet, create placeholder entries from task agent names
-  const agentPanelItems = boardAgents.length > 0
-    ? boardAgents
-    : boardAgentNames.map((name) => ({
-        id: name,
-        name,
-        status: "active" as const,
-        tasks_completed: tasks.filter((t) => t.agent_name === name && t.status === "done").length,
-        last_active: new Date().toISOString(),
-        cpu_usage: 0,
-        memory_usage: 0,
-      }));
+  const agentPanelItems =
+    boardAgents.length > 0
+      ? boardAgents
+      : boardAgentNames.map((name) => ({
+          id: name,
+          name,
+          status: "active" as const,
+          tasks_completed: tasks.filter(
+            (t) => t.agent_name === name && t.status === "done"
+          ).length,
+          last_active: new Date().toISOString(),
+          cpu_usage: 0,
+          memory_usage: 0,
+        }));
+
+  // ---------------------------------------------------------------------------
+  // Loading / Error states
+  // ---------------------------------------------------------------------------
 
   if (loading) {
     return (
@@ -490,7 +1075,9 @@ export default function BoardsPage() {
         {dispatchError && (
           <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-400" />
-            <span className="font-mono text-[10px] text-red-400">{dispatchError}</span>
+            <span className="font-mono text-[10px] text-red-400">
+              {dispatchError}
+            </span>
           </div>
         )}
 
@@ -501,18 +1088,21 @@ export default function BoardsPage() {
         ) : viewMode === "list" ? (
           /* ---- List View ---- */
           <div className="space-y-1">
-            {/* List header */}
-            <div className="grid grid-cols-[1fr_100px_100px_100px_80px] gap-2 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-600">
+            <div className="grid grid-cols-[1fr_100px_100px_100px_100px] gap-2 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-600">
               <span>Task</span>
               <span>Status</span>
               <span>Priority</span>
               <span>Agent</span>
-              <span>Tags</span>
+              <span>Due</span>
             </div>
             <AnimatePresence mode="popLayout">
               {tasks.map((task) => {
                 const priority = priorityConfig[task.priority];
                 const col = columnConfig.find((c) => c.key === task.status);
+                const isOverdue =
+                  task.due_date &&
+                  new Date(task.due_date).getTime() < Date.now() &&
+                  task.status !== "done";
                 return (
                   <motion.div
                     key={task.id}
@@ -520,11 +1110,11 @@ export default function BoardsPage() {
                     initial="hidden"
                     animate="visible"
                     layout
-                    className="group grid grid-cols-[1fr_100px_100px_100px_80px] items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2.5 transition-all hover:border-white/10"
+                    className="group grid grid-cols-[1fr_100px_100px_100px_100px] items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2.5 transition-all hover:border-white/10"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <button
-                        onClick={() => handleCycleStatus(task)}
+                        onClick={() => setDetailTask(task)}
                         className="min-w-0 truncate text-left font-mono text-sm text-zinc-300 transition-colors hover:text-white"
                       >
                         {task.title}
@@ -537,14 +1127,31 @@ export default function BoardsPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={cn("h-2 w-2 rounded-full", col?.dotColor)} />
-                      <span className={cn("font-mono text-[10px]", col?.color)}>
+                      <span
+                        className={cn("h-2 w-2 rounded-full", col?.dotColor)}
+                      />
+                      <span
+                        className={cn("font-mono text-[10px]", col?.color)}
+                      >
                         {col?.label}
                       </span>
                     </div>
-                    <span className={cn("rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold w-fit", priority.badge)}>
-                      {priority.label}
-                    </span>
+                    <select
+                      value={task.priority}
+                      onChange={(e) =>
+                        handleUpdateTask(task.id, {
+                          priority: e.target.value as MCTask["priority"],
+                        })
+                      }
+                      className={cn(
+                        "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold w-fit outline-none cursor-pointer",
+                        priority.badge
+                      )}
+                    >
+                      <option value="low">LOW</option>
+                      <option value="medium">MED</option>
+                      <option value="high">HIGH</option>
+                    </select>
                     {task.agent_name ? (
                       <div className="flex items-center gap-1">
                         <Bot className="h-3 w-3 text-emerald-400" />
@@ -553,17 +1160,25 @@ export default function BoardsPage() {
                         </span>
                       </div>
                     ) : (
-                      <span className="font-mono text-[10px] text-zinc-700">--</span>
+                      <span className="font-mono text-[10px] text-zinc-700">
+                        --
+                      </span>
                     )}
-                    <div className="flex items-center gap-1">
-                      {task.tags?.slice(0, 3).map((tag) => (
+                    <div>
+                      {task.due_date ? (
                         <span
-                          key={tag.id}
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                          title={tag.name}
-                        />
-                      ))}
+                          className={cn(
+                            "font-mono text-[10px]",
+                            isOverdue ? "text-red-400" : "text-zinc-600"
+                          )}
+                        >
+                          {daysUntil(task.due_date)}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[10px] text-zinc-700">
+                          --
+                        </span>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -576,458 +1191,292 @@ export default function BoardsPage() {
             )}
           </div>
         ) : (
-          /* ---- Board View (5-column: Agents + 4 status columns) ---- */
-          <div className="flex gap-3 overflow-x-auto pb-4">
-            {/* Agents Panel */}
-            <div className="w-48 shrink-0">
-              <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2">
-                <Bot className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="font-mono text-xs font-bold tracking-wider text-emerald-400">
-                  AGENTS
-                </span>
-                <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
-                  {agentPanelItems.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {agentPanelItems.map((agent) => {
-                  const agentTaskCount = tasks.filter(
-                    (t) => t.agent_name === agent.name
-                  ).length;
-                  const activeCount = tasks.filter(
-                    (t) => t.agent_name === agent.name && t.status === "in_progress"
-                  ).length;
-                  return (
-                    <motion.div
-                      key={agent.id}
-                      variants={itemVariants}
-                      initial="hidden"
-                      animate="visible"
-                      className="rounded-lg border border-white/[0.06] bg-[#0c0c0d] p-3 transition-all hover:border-emerald-500/15"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/20 bg-emerald-500/10">
-                          <Bot className="h-3.5 w-3.5 text-emerald-400" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-mono text-[11px] font-bold text-zinc-300">
-                            {agent.name}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                agent.status === "active"
-                                  ? "bg-emerald-400"
-                                  : agent.status === "pending"
-                                    ? "bg-amber-400"
-                                    : "bg-zinc-600"
-                              )}
-                            />
-                            <span className="font-mono text-[9px] uppercase text-zinc-600">
-                              {agent.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between border-t border-white/[0.04] pt-2">
-                        <span className="font-mono text-[9px] text-zinc-600">
-                          {agentTaskCount} task{agentTaskCount !== 1 ? "s" : ""}
-                        </span>
-                        {activeCount > 0 && (
-                          <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 font-mono text-[9px] text-blue-400">
-                            {activeCount} active
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-                {agentPanelItems.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-white/[0.06] py-6 text-center font-mono text-[9px] text-zinc-700">
-                    NO AGENTS
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Status Columns */}
-            {grouped.map((column) => (
-              <div key={column.key} className="min-w-[240px] flex-1">
-                {/* Column header */}
-                <div
-                  className={cn(
-                    "mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2"
-                  )}
-                >
-                  <span className={cn("h-2.5 w-2.5 rounded-full", column.dotColor)} />
-                  <span
-                    className={cn(
-                      "font-mono text-xs font-bold tracking-wider",
-                      column.color
-                    )}
-                  >
-                    {column.label.toUpperCase()}
+          /* ---- Board View (Agents + 4 status columns with drag & drop) ---- */
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-3 overflow-x-auto pb-4">
+              {/* Agents Panel */}
+              <div className="w-48 shrink-0">
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2">
+                  <Bot className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-mono text-xs font-bold tracking-wider text-emerald-400">
+                    AGENTS
                   </span>
-                  <span
-                    className={cn(
-                      "ml-auto rounded-full px-2 py-0.5 font-mono text-[10px] font-bold",
-                      column.countBg
-                    )}
-                  >
-                    {column.tasks.length}
+                  <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+                    {agentPanelItems.length}
                   </span>
                 </div>
-
-                {/* Tasks */}
-                <AnimatePresence mode="popLayout">
-                  <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="space-y-2"
-                  >
-                    {column.tasks.map((task) => {
-                      const priority = priorityConfig[task.priority];
-                      const isOverdue =
-                        task.due_date &&
-                        new Date(task.due_date).getTime() < Date.now() &&
-                        task.status !== "done";
-
-                      return (
-                        <motion.div
-                          key={task.id}
-                          variants={itemVariants}
-                          layout
-                          className="group overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0d] transition-all hover:border-white/10"
-                        >
-                          {/* Priority stripe */}
-                          <div
-                            className={cn("h-[2px] w-full", priority.stripe)}
-                          />
-                          <div className="p-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <button
-                                onClick={() => handleCycleStatus(task)}
-                                className="min-w-0 flex-1 text-left"
-                                title={`Click to move to ${statusCycle[task.status]?.replace("_", " ")}`}
-                              >
-                                <p className="font-mono text-sm font-medium text-zinc-300 transition-colors hover:text-white">
-                                  {task.title}
-                                </p>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteTask(task.id)}
-                                className="shrink-0 rounded p-1 text-zinc-700 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-                                title="Delete task"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                            {/* Description preview */}
-                            {task.description && (
-                              <p className="mt-1.5 line-clamp-2 font-mono text-[10px] text-zinc-500">
-                                {task.description}
-                              </p>
-                            )}
-                            {/* Dispatch button / Dispatched indicator */}
-                            {task.dispatched_at ? (
-                              <div className="mt-1.5 space-y-1">
-                                {task.dispatch_output ? (
-                                  <div className="flex items-center gap-1 rounded border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 w-fit">
-                                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-400" />
-                                    <span className="font-mono text-[9px] text-emerald-400">
-                                      COMPLETED
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 rounded border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 w-fit">
-                                    <Zap className="h-2.5 w-2.5 text-blue-400" />
-                                    <span className="font-mono text-[9px] text-blue-400">
-                                      DISPATCHED
-                                    </span>
-                                  </div>
-                                )}
-                                {task.dispatch_output && (
-                                  <p className="line-clamp-2 font-mono text-[10px] text-zinc-500">
-                                    {task.dispatch_output.slice(0, 120)}
-                                    {task.dispatch_output.length > 120 ? "..." : ""}
-                                  </p>
-                                )}
-                                {task.dispatch_output && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setViewingOutput(task);
-                                    }}
-                                    className="flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 font-mono text-[9px] text-zinc-400 transition-colors hover:border-emerald-500/20 hover:text-emerald-400"
-                                  >
-                                    <Eye className="h-2.5 w-2.5" />
-                                    VIEW OUTPUT
-                                  </button>
-                                )}
-                              </div>
-                            ) : task.agent_name && task.status !== "done" ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDispatchTask(task.id);
-                                }}
-                                className="mt-1.5 flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_8px_rgba(16,185,129,0.15)]"
-                              >
-                                <Zap className="h-3 w-3" />
-                                DISPATCH
-                              </button>
-                            ) : null}
-                            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                              {/* Agent assignment dropdown */}
-                              <select
-                                value={task.agent_name || ""}
-                                onChange={(e) =>
-                                  handleUpdateTaskAgent(task.id, e.target.value)
-                                }
-                                onClick={(e) => e.stopPropagation()}
-                                className={cn(
-                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] outline-none cursor-pointer",
-                                  task.agent_name
-                                    ? "border-emerald-500/15 bg-emerald-500/5 text-emerald-400"
-                                    : "border-white/[0.08] bg-transparent text-zinc-600"
-                                )}
-                              >
-                                <option value="">No agent</option>
-                                {agents.map((a) => (
-                                  <option key={a.id} value={a.name}>
-                                    {a.name}
-                                  </option>
-                                ))}
-                              </select>
+                <div className="space-y-2">
+                  {agentPanelItems.map((agent) => {
+                    const agentTaskCount = tasks.filter(
+                      (t) => t.agent_name === agent.name
+                    ).length;
+                    const activeCount = tasks.filter(
+                      (t) =>
+                        t.agent_name === agent.name &&
+                        t.status === "in_progress"
+                    ).length;
+                    return (
+                      <motion.div
+                        key={agent.id}
+                        variants={itemVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="rounded-lg border border-white/[0.06] bg-[#0c0c0d] p-3 transition-all hover:border-emerald-500/15"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/20 bg-emerald-500/10">
+                            <Bot className="h-3.5 w-3.5 text-emerald-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-mono text-[11px] font-bold text-zinc-300">
+                              {agent.name}
+                            </p>
+                            <div className="flex items-center gap-1">
                               <span
                                 className={cn(
-                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold",
-                                  priority.badge
+                                  "h-1.5 w-1.5 rounded-full",
+                                  agent.status === "active"
+                                    ? "bg-emerald-400"
+                                    : agent.status === "pending"
+                                      ? "bg-amber-400"
+                                      : "bg-zinc-600"
                                 )}
-                              >
-                                {priority.label}
+                              />
+                              <span className="font-mono text-[9px] uppercase text-zinc-600">
+                                {agent.status}
                               </span>
-                              {/* Tags */}
-                              {task.tags && task.tags.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  {task.tags.map((tag: MCTag) => (
-                                    <span
-                                      key={tag.id}
-                                      className="rounded-full border px-1.5 py-0.5 font-mono text-[9px]"
-                                      style={{
-                                        backgroundColor: `${tag.color}15`,
-                                        borderColor: `${tag.color}30`,
-                                        color: tag.color,
-                                      }}
-                                      title={tag.name}
-                                    >
-                                      {tag.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {task.due_date && (
-                                <div
-                                  className={cn(
-                                    "flex items-center gap-1",
-                                    isOverdue
-                                      ? "text-red-400"
-                                      : "text-zinc-600"
-                                  )}
-                                >
-                                  <Calendar className="h-3 w-3" />
-                                  <span className="font-mono text-[10px]">
-                                    {new Date(
-                                      task.due_date
-                                    ).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              )}
                             </div>
-                            {task.assignee && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 font-mono text-[9px] font-bold text-zinc-400">
-                                  {task.assignee[0]?.toUpperCase()}
-                                </div>
-                                <span className="font-mono text-[10px] text-zinc-600">
-                                  {task.assignee}
-                                </span>
-                              </div>
-                            )}
                           </div>
-                        </motion.div>
-                      );
-                    })}
-
-                    {column.tasks.length === 0 && addingTaskColumn !== column.key && (
-                      <div className="rounded-lg border border-dashed border-white/[0.06] py-6 text-center">
-                        <p className="font-mono text-[10px] text-zinc-700">NO TASKS</p>
-                        {column.key === "inbox" && (
-                          <p className="mt-1 font-mono text-[9px] text-zinc-800">
-                            Add a task, assign an agent, and dispatch
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Add task form */}
-                    {addingTaskColumn === column.key ? (
-                      <div className="rounded-lg border border-emerald-500/20 bg-[#0c0c0d] p-3 space-y-2">
-                        <input
-                          type="text"
-                          value={newTaskTitle}
-                          onChange={(e) => setNewTaskTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && newTaskTitle.trim() && !e.shiftKey) {
-                              handleCreateTask(column.key);
-                            }
-                            if (e.key === "Escape") {
-                              setAddingTaskColumn(null);
-                              setNewTaskTitle("");
-                              setNewTaskDescription("");
-                              setNewTaskAgent("");
-                            }
-                          }}
-                          placeholder="Task title..."
-                          autoFocus
-                          disabled={creatingTask}
-                          className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-                        />
-                        <textarea
-                          value={newTaskDescription}
-                          onChange={(e) => setNewTaskDescription(e.target.value)}
-                          placeholder="Description (context for the agent)..."
-                          rows={2}
-                          disabled={creatingTask}
-                          className="w-full resize-none rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-[10px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-                        />
-                        {agents.length > 0 && (
-                          <select
-                            value={newTaskAgent}
-                            onChange={(e) => setNewTaskAgent(e.target.value)}
-                            disabled={creatingTask}
-                            className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-1.5 font-mono text-[10px] text-zinc-400 outline-none focus:border-emerald-500/30"
-                          >
-                            <option value="">Assign agent (optional)</option>
-                            {agents.map((a) => (
-                              <option key={a.id} value={a.name}>
-                                {a.name}{a.role ? ` — ${a.role}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleCreateTask(column.key)}
-                            disabled={!newTaskTitle.trim() || creatingTask}
-                            className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[10px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
-                          >
-                            {creatingTask ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Plus className="h-3 w-3" />
-                            )}
-                            ADD
-                          </button>
-                          <button
-                            onClick={() => {
-                              setAddingTaskColumn(null);
-                              setNewTaskTitle("");
-                              setNewTaskDescription("");
-                              setNewTaskAgent("");
-                            }}
-                            className="rounded-md px-2 py-1.5 font-mono text-[10px] text-zinc-600 hover:text-zinc-400"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setAddingTaskColumn(column.key);
-                          setNewTaskTitle("");
-                        }}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/[0.06] py-2 font-mono text-[10px] text-zinc-700 transition-colors hover:border-emerald-500/20 hover:text-emerald-500/70"
-                      >
-                        <Plus className="h-3 w-3" />
-                        ADD TASK
-                      </button>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                        <div className="mt-2 flex items-center justify-between border-t border-white/[0.04] pt-2">
+                          <span className="font-mono text-[9px] text-zinc-600">
+                            {agentTaskCount} task
+                            {agentTaskCount !== 1 ? "s" : ""}
+                          </span>
+                          {activeCount > 0 && (
+                            <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 font-mono text-[9px] text-blue-400">
+                              {activeCount} active
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  {agentPanelItems.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-white/[0.06] py-6 text-center font-mono text-[9px] text-zinc-700">
+                      NO AGENTS
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* Dispatch Output Modal */}
-        <AnimatePresence>
-          {viewingOutput && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-              onClick={() => setViewingOutput(null)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0c0d] shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span className="font-mono text-sm font-bold text-zinc-200">
-                      {viewingOutput.title}
+              {/* Status Columns */}
+              {grouped.map((column) => (
+                <div key={column.key} className="min-w-[240px] flex-1">
+                  {/* Column header */}
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0c0c0d] px-3 py-2">
+                    <span
+                      className={cn(
+                        "h-2.5 w-2.5 rounded-full",
+                        column.dotColor
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "font-mono text-xs font-bold tracking-wider",
+                        column.color
+                      )}
+                    >
+                      {column.label.toUpperCase()}
+                    </span>
+                    <span
+                      className={cn(
+                        "ml-auto rounded-full px-2 py-0.5 font-mono text-[10px] font-bold",
+                        column.countBg
+                      )}
+                    >
+                      {column.tasks.length}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setViewingOutput(null)}
-                    className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-white/[0.04] hover:text-zinc-400"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-3 px-5 py-4">
-                  <div className="flex flex-wrap items-center gap-3 text-[10px]">
-                    {viewingOutput.agent_name && (
-                      <div className="flex items-center gap-1 font-mono text-emerald-400">
-                        <Bot className="h-3 w-3" />
-                        {viewingOutput.agent_name}
-                      </div>
-                    )}
-                    {viewingOutput.dispatched_at && (
-                      <div className="flex items-center gap-1 font-mono text-zinc-500">
-                        <Clock className="h-3 w-3" />
-                        Dispatched {relativeTime(viewingOutput.dispatched_at)}
-                      </div>
-                    )}
-                    {viewingOutput.openclaw_session_id && (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(viewingOutput.openclaw_session_id!);
+
+                  {/* Droppable zone */}
+                  <DroppableColumn id={column.key}>
+                    <SortableContext
+                      items={column.tasks.map((t) => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {column.tasks.map((task) => (
+                        <DraggableTaskCard
+                          key={task.id}
+                          task={task}
+                          agents={agents}
+                          token={token!}
+                          onUpdateTask={handleUpdateTask}
+                          onDispatch={handleDispatchTask}
+                          onDelete={handleDeleteTask}
+                          onOpenDetail={setDetailTask}
+                        />
+                      ))}
+                    </SortableContext>
+
+                    {column.tasks.length === 0 &&
+                      addingTaskColumn !== column.key && (
+                        <div className="rounded-lg border border-dashed border-white/[0.06] py-6 text-center">
+                          <p className="font-mono text-[10px] text-zinc-700">
+                            NO TASKS
+                          </p>
+                          {column.key === "inbox" && (
+                            <p className="mt-1 font-mono text-[9px] text-zinc-800">
+                              Add a task, assign an agent, and dispatch
+                            </p>
+                          )}
+                        </div>
+                      )}
+                  </DroppableColumn>
+
+                  {/* Add task form / button */}
+                  {addingTaskColumn === column.key ? (
+                    <div className="mt-2 rounded-lg border border-emerald-500/20 bg-[#0c0c0d] p-3 space-y-2">
+                      <input
+                        type="text"
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === "Enter" &&
+                            newTaskTitle.trim() &&
+                            !e.shiftKey
+                          ) {
+                            handleCreateTask(column.key);
+                          }
+                          if (e.key === "Escape") {
+                            setAddingTaskColumn(null);
+                            setNewTaskTitle("");
+                            setNewTaskDescription("");
+                            setNewTaskAgent("");
+                          }
                         }}
-                        className="flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 font-mono text-zinc-600 transition-colors hover:text-zinc-400"
-                        title="Copy session ID"
-                      >
-                        Session: {viewingOutput.openclaw_session_id.slice(0, 20)}...
-                      </button>
+                        placeholder="Task title..."
+                        autoFocus
+                        disabled={creatingTask}
+                        className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
+                      />
+                      <textarea
+                        value={newTaskDescription}
+                        onChange={(e) =>
+                          setNewTaskDescription(e.target.value)
+                        }
+                        placeholder="Description (context for the agent)..."
+                        rows={2}
+                        disabled={creatingTask}
+                        className="w-full resize-none rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-[10px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
+                      />
+                      {agents.length > 0 && (
+                        <select
+                          value={newTaskAgent}
+                          onChange={(e) => setNewTaskAgent(e.target.value)}
+                          disabled={creatingTask}
+                          className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-1.5 font-mono text-[10px] text-zinc-400 outline-none focus:border-emerald-500/30"
+                        >
+                          <option value="">Assign agent (optional)</option>
+                          {agents.map((a) => (
+                            <option key={a.id} value={a.name}>
+                              {a.name}
+                              {a.role ? ` — ${a.role}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleCreateTask(column.key)}
+                          disabled={!newTaskTitle.trim() || creatingTask}
+                          className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[10px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          {creatingTask ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Plus className="h-3 w-3" />
+                          )}
+                          ADD
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAddingTaskColumn(null);
+                            setNewTaskTitle("");
+                            setNewTaskDescription("");
+                            setNewTaskAgent("");
+                          }}
+                          className="rounded-md px-2 py-1.5 font-mono text-[10px] text-zinc-600 hover:text-zinc-400"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setAddingTaskColumn(column.key);
+                        setNewTaskTitle("");
+                      }}
+                      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/[0.06] py-2 font-mono text-[10px] text-zinc-700 transition-colors hover:border-emerald-500/20 hover:text-emerald-500/70"
+                    >
+                      <Plus className="h-3 w-3" />
+                      ADD TASK
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Drag overlay */}
+            <DragOverlay>
+              {activeTask && (
+                <div className="w-[240px] rounded-lg border border-emerald-500/30 bg-[#0c0c0d] p-3 shadow-2xl">
+                  <p className="font-mono text-sm font-medium text-zinc-200">
+                    {activeTask.title}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold",
+                        priorityConfig[activeTask.priority].badge
+                      )}
+                    >
+                      {priorityConfig[activeTask.priority].label}
+                    </span>
+                    {activeTask.agent_name && (
+                      <span className="font-mono text-[10px] text-emerald-400">
+                        {activeTask.agent_name}
+                      </span>
                     )}
                   </div>
-                  <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-white/[0.06] bg-black/40 p-4">
-                    <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-zinc-300">
-                      {viewingOutput.dispatch_output || "No output available"}
-                    </pre>
-                  </div>
                 </div>
-              </motion.div>
-            </motion.div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        )}
+
+        {/* Task Detail Modal */}
+        <AnimatePresence>
+          {detailTask && (
+            <TaskDetailModal
+              key={detailTask.id}
+              task={detailTask}
+              agents={agents}
+              token={token!}
+              onClose={() => setDetailTask(null)}
+              onSave={async (taskId, updates) => {
+                await patchTask(taskId, updates);
+              }}
+              onDispatch={handleDispatchTask}
+              onDelete={handleDeleteTask}
+            />
           )}
         </AnimatePresence>
       </div>
@@ -1035,7 +1484,6 @@ export default function BoardsPage() {
   }
 
   // ---- Board List View ----
-  // Group boards by board_group_id
   const boardsByGroup: Record<string, MCBoard[]> = {};
   const ungroupedBoards: MCBoard[] = [];
   boards.forEach((board) => {
@@ -1099,108 +1547,104 @@ export default function BoardsPage() {
     );
   }
 
-  // No boards — show a helpful empty state
-  if (boards.length === 0) {
-    return (
-      <div className="space-y-5">
-        <div className="flex flex-col items-center justify-center gap-6 rounded-lg border border-white/[0.06] bg-[#0c0c0d] py-16">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
-            <LayoutGrid className="h-8 w-8 text-emerald-400" />
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10">
+            <LayoutGrid className="h-5 w-5 text-emerald-400" />
           </div>
-          <div className="text-center">
-            <p className="font-mono text-sm font-bold text-zinc-300">No boards yet</p>
-            <p className="mt-1.5 max-w-md font-mono text-xs text-zinc-600">
-              Boards organize tasks into a Kanban workflow. Create a board, add tasks, assign agents, and dispatch.
+          <div>
+            <h1 className="font-mono text-lg font-bold tracking-tight text-zinc-200">
+              Task Boards
+            </h1>
+            <p className="font-mono text-xs text-zinc-600">
+              {boards.length} board{boards.length !== 1 ? "s" : ""}
             </p>
           </div>
-
-          {/* Mini Kanban preview */}
-          <div className="flex items-center gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2.5">
-            {["Inbox", "In Progress", "Review", "Done"].map((col, i) => (
-              <div key={col} className="flex items-center gap-2">
-                {i > 0 && <span className="text-zinc-700">→</span>}
-                <span className="rounded border border-white/[0.06] bg-white/[0.03] px-2 py-1 font-mono text-[9px] text-zinc-500">
-                  {col}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowNewBoard(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            CREATE YOUR FIRST BOARD
-          </button>
         </div>
+        <button
+          onClick={() => setShowNewBoard(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          NEW BOARD
+        </button>
+      </div>
 
-        {/* New board form (shows when button clicked) */}
+      {/* New board form */}
+      <AnimatePresence>
         {showNewBoard && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mx-auto w-full max-w-md rounded-lg border border-emerald-500/20 bg-[#0c0c0d] p-4 space-y-3"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
           >
-            <input
-              type="text"
-              placeholder="Board name"
-              value={newBoardName}
-              onChange={(e) => setNewBoardName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newBoardName.trim()) handleCreateBoard();
-              }}
-              autoFocus
-              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-            />
-            <input
-              type="text"
-              placeholder="Description (optional)"
-              value={newBoardDesc}
-              onChange={(e) => setNewBoardDesc(e.target.value)}
-              className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleCreateBoard}
-                disabled={!newBoardName.trim() || creatingBoard}
-                className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[10px] font-bold text-emerald-400 disabled:opacity-40"
-              >
-                {creatingBoard ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                CREATE
-              </button>
-              <button
-                onClick={() => setShowNewBoard(false)}
-                className="font-mono text-[10px] text-zinc-600 hover:text-zinc-400"
-              >
-                Cancel
-              </button>
+            <div className="rounded-lg border border-emerald-500/20 bg-[#0c0c0d] p-4 space-y-3">
+              <input
+                type="text"
+                value={newBoardName}
+                onChange={(e) => setNewBoardName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newBoardName.trim())
+                    handleCreateBoard();
+                  if (e.key === "Escape") setShowNewBoard(false);
+                }}
+                placeholder="Board name..."
+                autoFocus
+                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
+              />
+              <textarea
+                value={newBoardDesc}
+                onChange={(e) => setNewBoardDesc(e.target.value)}
+                placeholder="Description (optional)..."
+                rows={2}
+                className="w-full resize-none rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCreateBoard}
+                  disabled={!newBoardName.trim() || creatingBoard}
+                  className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                >
+                  {creatingBoard ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  CREATE
+                </button>
+                <button
+                  onClick={() => setShowNewBoard(false)}
+                  className="rounded-md px-3 py-1.5 font-mono text-xs text-zinc-600 hover:text-zinc-400"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
-      </div>
-    );
-  }
+      </AnimatePresence>
 
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/20 to-transparent" />
-        <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500/50">
-          Project Boards
-        </span>
-        <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/20 to-transparent" />
-      </div>
+      {/* Boards grid */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        {ungroupedBoards.map(renderBoardCard)}
+      </motion.div>
 
-      {/* Grouped boards */}
       {groupIds.map((groupId) => (
         <div key={groupId} className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-px w-4 bg-zinc-700/50" />
-            <span className="rounded border border-zinc-700/50 bg-zinc-800/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
-              Group {groupId.slice(0, 8)}
+            <div className="h-px flex-1 bg-gradient-to-r from-zinc-700/40 to-transparent" />
+            <span className="rounded-md border border-zinc-700/50 bg-zinc-800/50 px-2 py-0.5 font-mono text-[9px] text-zinc-500">
+              GROUP {groupId.slice(0, 8)}
             </span>
-            <div className="h-px flex-1 bg-zinc-700/30" />
+            <div className="h-px flex-1 bg-gradient-to-l from-zinc-700/40 to-transparent" />
           </div>
           <motion.div
             variants={containerVariants}
@@ -1213,96 +1657,17 @@ export default function BoardsPage() {
         </div>
       ))}
 
-      {/* Ungrouped boards + New Board card */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {ungroupedBoards.map(renderBoardCard)}
-
-        {/* New Board Card */}
-        {showNewBoard ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="overflow-hidden rounded-lg border border-emerald-500/20 bg-[#0c0c0d]"
-          >
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
-            <div className="p-4">
-              <input
-                type="text"
-                value={newBoardName}
-                onChange={(e) => setNewBoardName(e.target.value)}
-                placeholder="Board name..."
-                autoFocus
-                disabled={creatingBoard}
-                className="w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newBoardName.trim()) handleCreateBoard();
-                  if (e.key === "Escape") {
-                    setShowNewBoard(false);
-                    setNewBoardName("");
-                    setNewBoardDesc("");
-                  }
-                }}
-              />
-              <input
-                type="text"
-                value={newBoardDesc}
-                onChange={(e) => setNewBoardDesc(e.target.value)}
-                placeholder="Description (optional)..."
-                disabled={creatingBoard}
-                className="mt-2 w-full rounded-md border border-white/[0.08] bg-black/40 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newBoardName.trim()) handleCreateBoard();
-                  if (e.key === "Escape") {
-                    setShowNewBoard(false);
-                    setNewBoardName("");
-                    setNewBoardDesc("");
-                  }
-                }}
-              />
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  onClick={handleCreateBoard}
-                  disabled={!newBoardName.trim() || creatingBoard}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 font-mono text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
-                >
-                  {creatingBoard ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                  CREATE
-                </button>
-                <button
-                  onClick={() => {
-                    setShowNewBoard(false);
-                    setNewBoardName("");
-                    setNewBoardDesc("");
-                  }}
-                  className="rounded-lg px-3 py-2 font-mono text-xs text-zinc-600 hover:text-zinc-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.button
-            variants={itemVariants}
-            onClick={() => setShowNewBoard(true)}
-            className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/[0.08] bg-[#0c0c0d] p-8 transition-all hover:border-emerald-500/20 hover:bg-emerald-500/[0.02]"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-white/[0.12] bg-white/[0.02]">
-              <Plus className="h-4 w-4 text-zinc-600" />
-            </div>
-            <span className="font-mono text-xs text-zinc-600">NEW BOARD</span>
-          </motion.button>
-        )}
-      </motion.div>
+      {boards.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <div className="rounded-xl border border-white/[0.06] bg-[#0c0c0d] p-4">
+            <LayoutGrid className="h-8 w-8 text-zinc-700" />
+          </div>
+          <p className="font-mono text-sm text-zinc-500">No boards yet</p>
+          <p className="font-mono text-xs text-zinc-700">
+            Create a board to start organizing tasks
+          </p>
+        </div>
+      )}
     </div>
   );
 }

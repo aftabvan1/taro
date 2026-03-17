@@ -163,9 +163,9 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
-    environment:
-      - NODE_OPTIONS=--max-old-space-size=1024
     restart: unless-stopped
+    mem_limit: 1536m
+    memswap_limit: 2g
 `;
 
   await conn.execCommand(
@@ -286,9 +286,9 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
-    environment:
-      - NODE_OPTIONS=--max-old-space-size=1024
     restart: unless-stopped
+    mem_limit: 1536m
+    memswap_limit: 2g
 `;
 
   // Write updated compose file

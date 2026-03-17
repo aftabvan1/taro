@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { mcTasks, mcTaskTags, mcTags } from "@/lib/db/schema";
+import { mcTasks, mcTaskTags, mcTags, mcBoards, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
+
+async function validateBoardOwnership(boardId: string, userId: string) {
+  const result = await db
+    .select({ board: mcBoards, instance: instances })
+    .from(mcBoards)
+    .innerJoin(instances, eq(mcBoards.instanceId, instances.id))
+    .where(and(eq(mcBoards.id, boardId), eq(instances.userId, userId)))
+    .limit(1);
+  return result[0] ?? null;
+}
 
 export async function GET(
   req: NextRequest,
@@ -13,12 +23,17 @@ export async function GET(
 
   const { id: boardId } = await params;
 
+  const owned = await validateBoardOwnership(boardId, auth.userId);
+  if (!owned) {
+    return NextResponse.json({ error: "Board not found" }, { status: 404 });
+  }
+
   const tasks = await db
     .select()
     .from(mcTasks)
     .where(eq(mcTasks.boardId, boardId));
 
-  // Fetch tags for all tasks
+  // Fetch tags for all tasks — scoped to this board's task IDs
   const taskIds = tasks.map((t) => t.id);
   let tagMap: Record<string, { id: string; name: string; color: string }[]> = {};
 
@@ -31,7 +46,8 @@ export async function GET(
         tagColor: mcTags.color,
       })
       .from(mcTaskTags)
-      .innerJoin(mcTags, eq(mcTaskTags.tagId, mcTags.id));
+      .innerJoin(mcTags, eq(mcTaskTags.tagId, mcTags.id))
+      .where(inArray(mcTaskTags.taskId, taskIds));
 
     for (const row of taskTagRows) {
       if (!tagMap[row.taskId]) tagMap[row.taskId] = [];
@@ -71,7 +87,17 @@ export async function POST(
   if (!isAuthenticated(auth)) return auth;
 
   const { id: boardId } = await params;
+
+  const owned = await validateBoardOwnership(boardId, auth.userId);
+  if (!owned) {
+    return NextResponse.json({ error: "Board not found" }, { status: 404 });
+  }
+
   const body = await req.json();
+
+  if (!body.title || typeof body.title !== "string") {
+    return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
 
   const [task] = await db
     .insert(mcTasks)
