@@ -21,6 +21,9 @@ import {
   Clock,
   Wifi,
   Key,
+  Lock,
+  CreditCard,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
@@ -111,6 +114,23 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Change password
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Subscription management
+  const [loadingPortal, setLoadingPortal] = useState(false);
+
+  // Delete account
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+
   /* ---- Loading / no instance ---- */
   if (!instance) {
     return (
@@ -182,6 +202,102 @@ export default function SettingsPage() {
   function handleLogout() {
     localStorage.removeItem("token");
     router.replace("/");
+  }
+
+  async function handleChangePassword() {
+    if (!token) return;
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+    setChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(false);
+    try {
+      const res = await fetch("/api/account/change-password", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to change password");
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err) {
+      setPasswordError((err as Error).message);
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  async function handleManageSubscription() {
+    if (!token) return;
+    setLoadingPortal(true);
+    try {
+      const res = await fetch("/api/billing", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "portal" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to open portal");
+      window.open(data.data.url, "_blank");
+    } catch {
+      // If no subscription, redirect to checkout instead
+      try {
+        const res = await fetch("/api/billing", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "checkout" }),
+        });
+        const data = await res.json();
+        if (res.ok && data.data?.url) {
+          window.open(data.data.url, "_blank");
+        }
+      } catch { /* ignore */ }
+    } finally {
+      setLoadingPortal(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!token) return;
+    setDeletingAccount(true);
+    setDeleteAccountError(null);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: deleteAccountPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete account");
+      localStorage.removeItem("token");
+      router.replace("/");
+    } catch (err) {
+      setDeleteAccountError((err as Error).message);
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   return (
@@ -365,6 +481,92 @@ export default function SettingsPage() {
         )}
       </motion.div>
 
+      {/* Change Password */}
+      <motion.div
+        variants={itemVariants}
+        className="rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-6"
+      >
+        <div className="mb-4 flex items-center gap-3">
+          <Lock className="h-4 w-4 text-emerald-500" />
+          <h3 className="text-sm font-semibold">Change Password</h3>
+        </div>
+        <div className="space-y-3">
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Current password"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 font-mono text-sm outline-none transition-colors placeholder:text-zinc-700 focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20"
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="New password (min 8 characters)"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 font-mono text-sm outline-none transition-colors placeholder:text-zinc-700 focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20"
+          />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm new password"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 font-mono text-sm outline-none transition-colors placeholder:text-zinc-700 focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20"
+          />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 font-mono text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              {changingPassword ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : passwordSuccess ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              {passwordSuccess ? "UPDATED" : "UPDATE PASSWORD"}
+            </button>
+          </div>
+          {passwordError && (
+            <p className="font-mono text-xs text-red-400">ERR: {passwordError}</p>
+          )}
+          {passwordSuccess && (
+            <p className="font-mono text-xs text-emerald-400">Password updated successfully.</p>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Manage Subscription */}
+      <motion.div
+        variants={itemVariants}
+        className="rounded-2xl border border-white/[0.06] bg-[#0a0a0b] p-6"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard className="h-4 w-4 text-emerald-500" />
+            <div>
+              <h3 className="text-sm font-semibold">Subscription</h3>
+              <p className="mt-1 text-sm text-zinc-500">
+                Manage your plan, update payment method, or cancel.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleManageSubscription}
+            disabled={loadingPortal}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 font-mono text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            {loadingPortal ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CreditCard className="h-4 w-4" />
+            )}
+            MANAGE
+          </button>
+        </div>
+      </motion.div>
+
       {/* Logout */}
       <motion.div
         variants={itemVariants}
@@ -395,17 +597,42 @@ export default function SettingsPage() {
         <h3 className="mb-1 font-mono text-xs font-semibold uppercase tracking-wider text-red-400">
           Danger Zone
         </h3>
-        <p className="mb-4 text-sm text-zinc-500">
-          Permanently delete this instance and all associated data. This action
-          cannot be undone.
-        </p>
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 font-mono text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
-        >
-          <Trash2 className="h-4 w-4" />
-          DELETE INSTANCE
-        </button>
+
+        <div className="space-y-4">
+          {/* Delete Instance */}
+          <div className="flex items-center justify-between rounded-lg border border-red-500/10 bg-red-500/[0.02] p-4">
+            <div>
+              <p className="text-sm font-medium">Delete Instance</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Remove this instance and all its data from the server.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 font-mono text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              DELETE
+            </button>
+          </div>
+
+          {/* Delete Account */}
+          <div className="flex items-center justify-between rounded-lg border border-red-500/10 bg-red-500/[0.02] p-4">
+            <div>
+              <p className="text-sm font-medium">Delete Account</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Permanently delete your account, instances, and all data.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDeleteAccountModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 font-mono text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+            >
+              <UserX className="h-3.5 w-3.5" />
+              DELETE ACCOUNT
+            </button>
+          </div>
+        </div>
       </motion.div>
 
       {/* Delete Confirmation Modal */}
@@ -480,6 +707,84 @@ export default function SettingsPage() {
               >
                 {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
                 DELETE
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative mx-4 w-full max-w-md rounded-2xl border border-red-500/20 bg-[#0c0c0d] p-6"
+          >
+            <button
+              onClick={() => {
+                setShowDeleteAccountModal(false);
+                setDeleteAccountPassword("");
+                setDeleteAccountError(null);
+              }}
+              className="absolute right-4 top-4 rounded-lg p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
+                <UserX className="h-5 w-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Delete Account</h3>
+                <p className="font-mono text-xs text-zinc-600">
+                  ACTION: PERMANENT
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-zinc-400">
+              This will permanently delete your account, all instances, backups,
+              and data. Your subscription will be canceled. This cannot be undone.
+            </p>
+            <p className="mt-3 text-sm text-zinc-400">
+              Enter your password to confirm.
+            </p>
+
+            <input
+              type="password"
+              value={deleteAccountPassword}
+              onChange={(e) => setDeleteAccountPassword(e.target.value)}
+              placeholder="Your password"
+              className="mt-4 w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 font-mono text-sm outline-none transition-colors placeholder:text-zinc-700 focus:border-red-500/30 focus:ring-1 focus:ring-red-500/20"
+            />
+
+            {deleteAccountError && (
+              <p className="mt-2 font-mono text-xs text-red-400">
+                ERR: {deleteAccountError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteAccountModal(false);
+                  setDeleteAccountPassword("");
+                  setDeleteAccountError(null);
+                }}
+                disabled={deletingAccount}
+                className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm transition-colors hover:bg-white/[0.06] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount || !deleteAccountPassword}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/15 px-4 py-2 font-mono text-sm font-medium text-red-400 transition-colors hover:bg-red-500/25 disabled:opacity-50"
+              >
+                {deletingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
+                DELETE MY ACCOUNT
               </button>
             </div>
           </motion.div>
