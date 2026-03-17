@@ -5,6 +5,7 @@ import { HeroOrbitDeck } from "@/components/ui/hero-modern";
 import { ProblemSolution } from "@/components/landing/problem-solution";
 import { FeaturesGrid } from "@/components/landing/features-grid";
 import { MissionControl } from "@/components/landing/mission-control";
+import { Integrations } from "@/components/landing/integrations";
 import { Pricing } from "@/components/landing/pricing";
 import { Testimonials } from "@/components/landing/testimonials";
 import { CTASection } from "@/components/landing/cta-section";
@@ -22,6 +23,7 @@ export default function Home() {
         <ProblemSolution />
         <FeaturesGrid />
         <MissionControl />
+        <Integrations />
         <Pricing />
         <Testimonials />
         <CTASection />

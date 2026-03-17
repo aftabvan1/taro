@@ -61,7 +61,7 @@ const MC_FEATURES = [
   },
   {
     icon: Plug,
-    title: "Composio Integrations",
+    title: "850+ Integrations",
     description: "Connect to 850+ tools — GitHub, Gmail, Slack, Notion, Linear, Stripe, and more. One click to authenticate, instant access for your agents.",
   },
   {
@@ -250,7 +250,7 @@ export const MissionControl = () => {
               "Kanban boards to track what agents are working on",
               "Live CPU, memory, and network monitoring",
               "Full activity timeline — every action, searchable",
-              "Connect to 850+ tools via Composio — GitHub, Slack, Gmail, and more",
+              "Connect to 850+ tools — GitHub, Slack, Gmail, and more",
             ].map((item) => (
               <li
                 key={item}
