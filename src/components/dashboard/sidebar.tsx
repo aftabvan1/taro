@@ -7,11 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Terminal,
-  MessageSquare,
   Bot,
   LayoutGrid,
   Radio,
-  Activity,
   HardDrive,
   Settings,
   CreditCard,
@@ -21,6 +19,7 @@ import {
   Menu,
   X,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
@@ -104,32 +103,27 @@ interface NavItem {
   href?: string;
   externalHref?: string;
   isExternal?: boolean;
-  section?: string;
+  section: string;
+  disabled?: boolean;
 }
 
-function buildNavItems(instance?: Instance | null): NavItem[] {
-  const serverIp = instance?.serverIp;
-
+function buildNavItems(): NavItem[] {
   return [
-    { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
-    {
-      label: "Web Chat",
-      icon: MessageSquare,
-      externalHref:
-        serverIp
-          ? `https://${serverIp.replace(/\./g, "-")}.nip.io`
-          : undefined,
-      isExternal: true,
-    },
-    { label: "Terminal", icon: Terminal, href: "/dashboard/terminal" },
-    { label: "Monitoring", icon: Activity, href: "/dashboard/monitoring" },
-    { label: "Backups", icon: HardDrive, href: "/dashboard/backups" },
+    // MISSION CONTROL
+    { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", section: "Mission Control" },
     { label: "Agents", icon: Bot, href: "/dashboard/agents", section: "Mission Control" },
-    { label: "Boards", icon: LayoutGrid, href: "/dashboard/boards" },
-    { label: "Activity", icon: Radio, href: "/dashboard/activity" },
-    { label: "Integrations", icon: Plug, href: "/dashboard/integrations", section: "Platform" },
-    { label: "Settings", icon: Settings, href: "/dashboard/settings" },
-    { label: "Billing", icon: CreditCard, href: "/dashboard/billing" },
+    { label: "Boards", icon: LayoutGrid, href: "/dashboard/boards", section: "Mission Control" },
+    { label: "Approvals", icon: ShieldCheck, href: "/dashboard/approvals", section: "Mission Control" },
+    { label: "Live Feed", icon: Radio, href: "/dashboard/live-feed", section: "Mission Control" },
+
+    // TOOLS
+    { label: "Terminal", icon: Terminal, href: "/dashboard/terminal", section: "Tools" },
+    { label: "Marketplace", icon: Plug, href: "/dashboard/integrations", section: "Tools" },
+
+    // SYSTEM
+    { label: "Backups", icon: HardDrive, href: "/dashboard/backups", section: "System" },
+    { label: "Settings", icon: Settings, href: "/dashboard/settings", section: "System" },
+    { label: "Billing", icon: CreditCard, href: "/dashboard/billing", section: "System" },
   ];
 }
 
@@ -146,7 +140,7 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = buildNavItems(instance);
+  const navItems = buildNavItems();
 
   const isActive = (href?: string) => {
     if (!href) return false;
@@ -188,15 +182,10 @@ export function Sidebar({
 
       {/* ---- Navigation ---- */}
       <nav className="mt-3 flex-1 space-y-0.5 px-2 overflow-y-auto">
-        {!collapsed && (
-          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-violet-500/50">
-            Systems
-          </p>
-        )}
         {navItems.map((item, idx) => {
-          const showSection = item.section && (idx === 0 || navItems[idx - 1]?.section !== item.section);
+          const showSection = idx === 0 || navItems[idx - 1]?.section !== item.section;
           const active = isActive(item.href);
-          const disabled = item.isExternal && !item.externalHref;
+          const disabled = item.disabled || (item.isExternal && !item.externalHref);
 
           const content = (
             <motion.div
@@ -250,10 +239,27 @@ export function Sidebar({
           );
 
           const sectionHeader = showSection && !collapsed ? (
-            <p className="mt-4 mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-violet-500/50">
+            <p className={cn(
+              "mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-violet-500/50",
+              idx !== 0 && "mt-4"
+            )}>
               {item.section}
             </p>
           ) : null;
+
+          if ((disabled && !item.isExternal) || (!item.href && !item.isExternal)) {
+            return (
+              <React.Fragment key={item.label}>
+                {sectionHeader}
+                <div
+                  className="group relative block"
+                  aria-disabled
+                >
+                  {content}
+                </div>
+              </React.Fragment>
+            );
+          }
 
           if (item.isExternal) {
             return (

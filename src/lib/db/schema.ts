@@ -6,6 +6,8 @@ import {
   pgEnum,
   uuid,
   bigint,
+  json,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const planEnum = pgEnum("plan", ["hobby", "pro", "teams"]);
@@ -120,6 +122,8 @@ export const mcAgents = pgTable("mc_agents", {
     .notNull()
     .references(() => instances.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  role: text("role").notNull().default(""),
+  description: text("description").notNull().default(""),
   status: mcAgentStatusEnum("mc_agent_status").notNull().default("pending"),
   tasksCompleted: integer("tasks_completed").notNull().default(0),
   lastActive: timestamp("last_active", { withTimezone: true })
@@ -127,6 +131,20 @@ export const mcAgents = pgTable("mc_agents", {
     .defaultNow(),
   cpuUsage: integer("cpu_usage").notNull().default(0),
   memoryUsage: integer("memory_usage").notNull().default(0),
+  openclawSessionId: text("openclaw_session_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Board Groups ──────────────────────────────────────────
+
+export const mcBoardGroups = pgTable("mc_board_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -139,6 +157,9 @@ export const mcBoards = pgTable("mc_boards", {
   instanceId: uuid("instance_id")
     .notNull()
     .references(() => instances.id, { onDelete: "cascade" }),
+  boardGroupId: uuid("board_group_id").references(() => mcBoardGroups.id, {
+    onDelete: "set null",
+  }),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -149,8 +170,10 @@ export const mcBoards = pgTable("mc_boards", {
 // ─── Mission Control: Tasks ──────────────────────────────────────────────────
 
 export const mcTaskStatusEnum = pgEnum("mc_task_status", [
+  "inbox",
   "todo",
   "in_progress",
+  "review",
   "done",
 ]);
 
@@ -166,11 +189,15 @@ export const mcTasks = pgTable("mc_tasks", {
     .notNull()
     .references(() => mcBoards.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  description: text("description").notNull().default(""),
   status: mcTaskStatusEnum("mc_task_status").notNull().default("todo"),
   agentName: text("agent_name").notNull().default(""),
   priority: mcTaskPriorityEnum("mc_task_priority").notNull().default("medium"),
   assignee: text("assignee"),
   dueDate: timestamp("due_date", { withTimezone: true }),
+  openclawSessionId: text("openclaw_session_id"),
+  dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+  dispatchOutput: text("dispatch_output"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -210,6 +237,70 @@ export const mcApprovals = pgTable("mc_approvals", {
   status: mcApprovalStatusEnum("mc_approval_status")
     .notNull()
     .default("pending"),
+  openclawApprovalId: text("openclaw_approval_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Mission Control: Tags ──────────────────────────────────────────────────
+
+export const mcTags = pgTable("mc_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#6366f1"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const mcTaskTags = pgTable(
+  "mc_task_tags",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => mcTasks.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => mcTags.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.tagId] })]
+);
+
+// ─── Mission Control: Custom Fields ─────────────────────────────────────────
+
+export const mcCustomFieldTypeEnum = pgEnum("mc_custom_field_type", [
+  "text",
+  "number",
+  "date",
+  "select",
+]);
+
+export const mcCustomFields = pgTable("mc_custom_fields", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => instances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  fieldType: mcCustomFieldTypeEnum("field_type").notNull().default("text"),
+  options: json("options").$type<string[]>(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const mcTaskCustomFieldValues = pgTable("mc_task_custom_field_values", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id")
+    .notNull()
+    .references(() => mcTasks.id, { onDelete: "cascade" }),
+  fieldId: uuid("field_id")
+    .notNull()
+    .references(() => mcCustomFields.id, { onDelete: "cascade" }),
+  value: text("value").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

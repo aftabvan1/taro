@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
+import { seedInstanceData } from "@/lib/seed-instance";
 
 const ssh = new NodeSSH();
 
@@ -35,6 +36,82 @@ const allocatePort = async (instanceIndex: number) => {
     ttyd: base + 1,
     mc: base + 2,
   };
+};
+
+/**
+ * Deploy the sync daemon on a server instance.
+ * Installs Node.js if missing, writes the script + deps, creates systemd service.
+ */
+export const deploySyncDaemon = async (
+  conn: NodeSSH,
+  instanceName: string,
+  instanceId: string,
+  mcPort: number
+) => {
+  const instanceDir = `/opt/taro/instances/${instanceName}`;
+  const containerName = `taro-${instanceName}`;
+
+  // Install Node.js on host if not present
+  const nodeCheck = await conn.execCommand("which node");
+  if (nodeCheck.code !== 0) {
+    console.log("[deploySyncDaemon] Node.js not found, installing...");
+    await conn.execCommand(
+      "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs"
+    );
+  }
+
+  // Create sync directory and package.json
+  await conn.execCommand(`mkdir -p ${instanceDir}/sync`);
+  await conn.execCommand(
+    `cat > ${instanceDir}/sync/package.json << 'PKGEOF'
+{"name":"openclaw-sync","private":true,"type":"module","dependencies":{"@neondatabase/serverless":"^0.10.0"}}
+PKGEOF`
+  );
+  await conn.execCommand(`cd ${instanceDir}/sync && npm install --production 2>&1 | tail -1`);
+
+  // Write the sync script to the server
+  const fs = await import("fs");
+  const path = await import("path");
+  const syncScriptPath = path.join(process.cwd(), "docker/scripts/openclaw-sync.mjs");
+  const syncScript = fs.readFileSync(syncScriptPath, "utf-8");
+  await conn.execCommand(
+    `cat > ${instanceDir}/sync/openclaw-sync.mjs << 'SYNCEOF'
+${syncScript}
+SYNCEOF`
+  );
+
+  // Create env file with secrets
+  const databaseUrl = process.env.DATABASE_URL!;
+  await conn.execCommand(
+    `cat > ${instanceDir}/sync/.env << ENVEOF
+DATABASE_URL=${databaseUrl}
+INSTANCE_ID=${instanceId}
+CONTAINER_NAME=${containerName}-openclaw
+SYNC_HTTP_PORT=${mcPort}
+ENVEOF
+chmod 600 ${instanceDir}/sync/.env`
+  );
+
+  // Create and start systemd service
+  await conn.execCommand(
+    `cat > /etc/systemd/system/taro-sync-${instanceName}.service << SYNCSERVEOF
+[Unit]
+Description=OpenClaw sync daemon for ${containerName}
+After=docker.service
+
+[Service]
+ExecStart=/usr/bin/node ${instanceDir}/sync/openclaw-sync.mjs
+EnvironmentFile=${instanceDir}/sync/.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYNCSERVEOF
+systemctl daemon-reload && systemctl enable taro-sync-${instanceName} && systemctl start taro-sync-${instanceName}`
+  );
+
+  console.log(`[deploySyncDaemon] Sync daemon deployed for ${instanceName} on port ${mcPort}`);
 };
 
 export const provisionInstance = async (
@@ -89,14 +166,6 @@ services:
     environment:
       - NODE_OPTIONS=--max-old-space-size=1024
     restart: unless-stopped
-
-  ttyd:
-    image: tsl0922/ttyd:latest
-    container_name: ${containerName}-ttyd
-    ports:
-      - "${ports.ttyd}:7681"
-    command: ttyd -W bash
-    restart: unless-stopped
 `;
 
   await conn.execCommand(
@@ -107,6 +176,29 @@ COMPOSEEOF`
 
   // Start the stack
   await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+
+  // Install ttyd on host if not present
+  await conn.execCommand(
+    `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
+  );
+
+  // Create ttyd systemd service that execs into the OpenClaw container
+  await conn.execCommand(
+    `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
+[Unit]
+Description=ttyd terminal for ${containerName}
+After=docker.service
+
+[Service]
+ExecStart=/usr/bin/ttyd -p ${ports.ttyd} -W docker exec -it ${containerName}-openclaw /bin/sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+TTYDEOF
+systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemctl start taro-ttyd-${instanceName}`
+  );
 
   // Create socat forwarder to expose OpenClaw (binds to localhost only) on the allocated port
   await conn.execCommand(
@@ -124,6 +216,9 @@ WantedBy=multi-user.target
 SOCATEOF
 systemctl daemon-reload && systemctl enable taro-socat-${instanceName} && systemctl start taro-socat-${instanceName}`
   );
+
+  // Deploy OpenClaw sync daemon
+  await deploySyncDaemon(conn, instanceName, instanceId, ports.mc);
 
   // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy + nip.io
   const nipDomain = serverIp.replace(/\./g, "-") + ".nip.io";
@@ -153,6 +248,9 @@ systemctl reload caddy`
     })
     .where(eq(instances.id, instanceId));
 
+  // Seed Mission Control data so dashboard isn't empty
+  await seedInstanceData(instanceId);
+
   await logActivity(
     instanceId,
     "deploy",
@@ -167,25 +265,194 @@ systemctl reload caddy`
   };
 };
 
+export const reprovisionInstance = async (
+  instanceId: string,
+  instanceName: string,
+  containerName: string,
+  serverIp: string,
+  openclawPort: number,
+  ttydPort: number
+) => {
+  const conn = await getSSHConnection();
+  const instanceDir = `/opt/taro/instances/${instanceName}`;
+
+  // Rebuild the docker-compose.yml with updated config (ttyd now runs on host)
+  const compose = `
+services:
+  openclaw:
+    image: alpine/openclaw:latest
+    container_name: ${containerName}-openclaw
+    network_mode: host
+    volumes:
+      - ./data/openclaw:/data
+      - ./data/openclaw-config:/home/node/.openclaw
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=1024
+    restart: unless-stopped
+`;
+
+  // Write updated compose file
+  await conn.execCommand(
+    `cat > ${instanceDir}/docker-compose.yml << 'COMPOSEEOF'
+${compose}
+COMPOSEEOF`
+  );
+
+  // Stop old ttyd container if it exists, then remove it
+  await conn.execCommand(
+    `docker stop ${containerName}-ttyd 2>/dev/null; docker rm ${containerName}-ttyd 2>/dev/null`
+  );
+
+  // Recreate OpenClaw container with new config
+  await conn.execCommand(`cd ${instanceDir} && docker compose up -d --force-recreate`);
+
+  // Install ttyd on host if not present
+  await conn.execCommand(
+    `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
+  );
+
+  // Create/update ttyd systemd service on host
+  await conn.execCommand(
+    `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
+[Unit]
+Description=ttyd terminal for ${containerName}
+After=docker.service
+
+[Service]
+ExecStart=/usr/bin/ttyd -p ${ttydPort} -W docker exec -it ${containerName}-openclaw /bin/sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+TTYDEOF
+systemctl daemon-reload && systemctl restart taro-ttyd-${instanceName}`
+  );
+
+  // Check if sync daemon exists — deploy if missing, update if present
+  const syncCheck = await conn.execCommand(`systemctl is-active taro-sync-${instanceName} 2>/dev/null`);
+  if (syncCheck.stdout.trim() !== "active") {
+    // Get instance ID and mcPort from DB for deploySyncDaemon
+    const [inst] = await db
+      .select({ id: instances.id, mcPort: instances.mcPort })
+      .from(instances)
+      .where(eq(instances.id, instanceId))
+      .limit(1);
+    if (inst?.mcPort) {
+      await deploySyncDaemon(conn, instanceName, instanceId, inst.mcPort);
+    }
+  } else {
+    // Update sync daemon script with latest code
+    const fs = await import("fs");
+    const path = await import("path");
+    const syncScriptPath = path.join(process.cwd(), "docker/scripts/openclaw-sync.mjs");
+    try {
+      const syncScript = fs.readFileSync(syncScriptPath, "utf-8");
+      await conn.execCommand(
+        `cat > ${instanceDir}/sync/openclaw-sync.mjs << 'SYNCEOF'
+${syncScript}
+SYNCEOF`
+      );
+      await conn.execCommand(`systemctl restart taro-sync-${instanceName}`);
+    } catch {
+      // sync script update is best-effort during reprovision
+    }
+  }
+
+  // Rewrite Caddy config and reload — ensures reverse proxy reconnects
+  // after the upstream containers restart
+  const nipDomain = serverIp.replace(/\./g, "-") + ".nip.io";
+  await conn.execCommand(
+    `cat > /etc/caddy/Caddyfile << CADDYEOF
+${nipDomain} {
+    reverse_proxy 127.0.0.1:18789
+}
+
+ttyd-${nipDomain} {
+    reverse_proxy 127.0.0.1:${ttydPort}
+}
+CADDYEOF
+systemctl reload caddy`
+  );
+
+  await db
+    .update(instances)
+    .set({ status: "running" })
+    .where(eq(instances.id, instanceId));
+
+  await logActivity(
+    instanceId,
+    "deploy",
+    `Instance reprovisioned with updated terminal config`
+  );
+};
+
+/**
+ * Update the sync daemon script on a running instance.
+ * If the sync daemon was never deployed, does a full deploy instead.
+ */
+export const updateSyncDaemon = async (
+  instanceName: string,
+  instanceId?: string,
+  mcPort?: number
+) => {
+  const conn = await getSSHConnection();
+  const instanceDir = `/opt/taro/instances/${instanceName}`;
+
+  // Check if sync daemon service exists
+  const serviceCheck = await conn.execCommand(
+    `test -f /etc/systemd/system/taro-sync-${instanceName}.service && echo exists`
+  );
+
+  if (serviceCheck.stdout.trim() !== "exists") {
+    // Sync daemon was never deployed — do full deploy
+    if (!instanceId || !mcPort) {
+      throw new Error("Sync daemon not deployed and missing instanceId/mcPort for deployment");
+    }
+    await deploySyncDaemon(conn, instanceName, instanceId, mcPort);
+    return;
+  }
+
+  // Write the updated sync script
+  const fs = await import("fs");
+  const path = await import("path");
+  const syncScriptPath = path.join(process.cwd(), "docker/scripts/openclaw-sync.mjs");
+  const syncScript = fs.readFileSync(syncScriptPath, "utf-8");
+  await conn.execCommand(
+    `cat > ${instanceDir}/sync/openclaw-sync.mjs << 'SYNCEOF'
+${syncScript}
+SYNCEOF`
+  );
+
+  // Restart the sync daemon to pick up changes
+  await conn.execCommand(`systemctl restart taro-sync-${instanceName}`);
+};
+
 export const stopInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
+  const instanceName = containerName.replace("taro-", "");
   await conn.execCommand(
-    `cd /opt/taro/instances/${containerName.replace("taro-", "")} && docker compose stop`
+    `cd /opt/taro/instances/${instanceName} && docker compose stop`
   );
+  await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null`);
 };
 
 export const startInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
+  const instanceName = containerName.replace("taro-", "");
   await conn.execCommand(
-    `cd /opt/taro/instances/${containerName.replace("taro-", "")} && docker compose start`
+    `cd /opt/taro/instances/${instanceName} && docker compose start`
   );
+  await conn.execCommand(`systemctl start taro-sync-${instanceName} 2>/dev/null`);
 };
 
 export const restartInstance = async (containerName: string) => {
   const conn = await getSSHConnection();
+  const instanceName = containerName.replace("taro-", "");
   await conn.execCommand(
-    `cd /opt/taro/instances/${containerName.replace("taro-", "")} && docker compose restart`
+    `cd /opt/taro/instances/${instanceName} && docker compose restart`
   );
+  await conn.execCommand(`systemctl restart taro-sync-${instanceName} 2>/dev/null`);
 };
 
 export const deleteInstance = async (containerName: string) => {
@@ -194,9 +461,9 @@ export const deleteInstance = async (containerName: string) => {
   const instanceDir = `/opt/taro/instances/${instanceName}`;
   await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
   await conn.execCommand(`rm -rf ${instanceDir}`);
-  // Clean up socat forwarder
+  // Clean up all systemd services (socat, ttyd, sync)
   await conn.execCommand(
-    `systemctl stop taro-socat-${instanceName} 2>/dev/null; systemctl disable taro-socat-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-socat-${instanceName}.service; systemctl daemon-reload`
+    `systemctl stop taro-socat-${instanceName} taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-socat-${instanceName} taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-socat-${instanceName}.service /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; systemctl daemon-reload`
   );
 };
 

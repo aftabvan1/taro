@@ -11,6 +11,7 @@ import {
   Wifi,
   WifiOff,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "../layout";
@@ -36,12 +37,39 @@ const TERMINAL_ASCII = `
 /* ------------------------------------------------------------------ */
 
 export default function TerminalPage() {
-  const { instance, loading } = useDashboard();
+  const { instance, loading, token, refreshInstances } = useDashboard();
 
   const [connected, setConnected] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [uptime, setUptime] = useState(0);
+  const [reprovisioning, setReprovisioning] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleReprovision = useCallback(async () => {
+    if (!instance || reprovisioning) return;
+    setReprovisioning(true);
+    try {
+      const res = await fetch(`/api/instances/${instance.id}/reprovision`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        // Wait for containers + Caddy to restart, then reload everything
+        setTimeout(async () => {
+          setConnected(false);
+          setIframeKey((k) => k + 1);
+          // Refresh instance data so sidebar/web-chat links stay valid
+          await refreshInstances();
+          setReprovisioning(false);
+        }, 10000);
+      } else {
+        setReprovisioning(false);
+      }
+    } catch {
+      setReprovisioning(false);
+    }
+  }, [instance, token, reprovisioning, refreshInstances]);
 
   const hasTerminal =
     instance?.serverIp != null && instance?.ttydPort != null;
@@ -190,6 +218,21 @@ export default function TerminalPage() {
             {ttydHost}
           </span>
 
+          {/* Reprovision */}
+          <button
+            onClick={handleReprovision}
+            disabled={reprovisioning}
+            className="rounded-md border border-white/[0.06] p-1.5 transition-colors hover:border-amber-500/30 hover:bg-amber-500/5 disabled:opacity-50"
+            title="Reprovision terminal"
+          >
+            <RefreshCw
+              className={cn(
+                "h-4 w-4 text-zinc-400",
+                reprovisioning && "animate-spin text-amber-400",
+              )}
+            />
+          </button>
+
           {/* Open in new tab */}
           <a
             href={terminalUrl!}
@@ -219,6 +262,7 @@ export default function TerminalPage() {
       {/* Iframe container */}
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/[0.06]">
         <iframe
+          key={iframeKey}
           src={terminalUrl!}
           title="Terminal"
           className="h-full w-full border-0 bg-[#0a0a0b]"

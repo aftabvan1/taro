@@ -1,0 +1,1 @@
+ALTER TABLE "mc_tasks" ADD COLUMN "dispatch_output" text;

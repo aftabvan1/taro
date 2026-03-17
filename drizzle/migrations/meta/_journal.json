@@ -15,6 +15,34 @@
       "when": 1773659925280,
       "tag": "0001_futuristic_inhumans",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773695737336,
+      "tag": "0002_nervous_marvex",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773698789181,
+      "tag": "0003_mature_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773701504835,
+      "tag": "0004_nosy_lord_tyger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773711286222,
+      "tag": "0005_broad_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }
