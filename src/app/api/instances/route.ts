@@ -18,7 +18,7 @@ const createInstanceSchema = z.object({
       /^[a-z0-9-]+$/,
       "Name must be lowercase alphanumeric with hyphens only"
     ),
-  region: z.enum(["eu-central", "us-east", "us-west"]).default("eu-central"),
+  region: z.enum(["us-east"]).default("us-east"),
 });
 
 // GET /api/instances — list user's instances

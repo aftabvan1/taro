@@ -532,9 +532,6 @@ export default function DashboardOverview() {
                 className="rounded-md border border-zinc-800 bg-black/50 px-3 py-2 font-mono text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
               >
                 <option value="us-east">US-EAST (Ashburn, VA)</option>
-                <option value="us-west-2">US-WEST-2 (Oregon)</option>
-                <option value="eu-west-1">EU-WEST-1 (Ireland)</option>
-                <option value="ap-south-1">AP-SOUTH-1 (Mumbai)</option>
               </select>
             </label>
 

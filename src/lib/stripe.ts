@@ -44,9 +44,12 @@ export const createCheckoutSession = async (
  */
 export const createPortalSession = async (customerId: string) => {
   const stripe = getStripe();
+  const portalConfig = process.env.STRIPE_PORTAL_CONFIG_ID;
+
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+    ...(portalConfig ? { configuration: portalConfig } : {}),
   });
 
   return session;

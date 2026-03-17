@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   Check,
   CreditCard,
   Loader2,
@@ -41,6 +42,7 @@ export default function BillingPage() {
   const [hasSubscription, setHasSubscription] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -62,6 +64,7 @@ export default function BillingPage() {
   const handleManageBilling = async () => {
     if (!token) return;
     setActionLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/billing", {
         method: "POST",
@@ -72,11 +75,17 @@ export default function BillingPage() {
         body: JSON.stringify({ action: hasSubscription ? "portal" : "checkout" }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to open billing portal");
+        return;
+      }
       if (data.data?.url) {
         window.location.href = data.data.url;
+      } else {
+        setError("No redirect URL received from Stripe");
       }
     } catch {
-      // handled silently
+      setError("Something went wrong. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -158,6 +167,17 @@ export default function BillingPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Error */}
+      {error && (
+        <motion.div
+          variants={itemVariants}
+          className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 font-mono text-xs text-red-400"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {error}
+        </motion.div>
+      )}
 
       {/* Plan Cards */}
       <div>
