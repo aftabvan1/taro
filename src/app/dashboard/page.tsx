@@ -256,7 +256,7 @@ export default function DashboardOverview() {
 
   /* Create instance form state */
   const [newName, setNewName] = useState("");
-  const [newRegion, setNewRegion] = useState("us-east");
+
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -366,7 +366,7 @@ export default function DashboardOverview() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ name: newName.trim(), region: newRegion }),
+          body: JSON.stringify({ name: newName.trim() }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -384,7 +384,7 @@ export default function DashboardOverview() {
         setCreating(false);
       }
     },
-    [token, newName, newRegion, refreshInstances]
+    [token, newName, refreshInstances]
   );
 
   /* ---- Subscribe (redirect to Stripe checkout) ---- */
@@ -520,19 +520,6 @@ export default function DashboardOverview() {
                 placeholder="my-agent-01"
                 className="rounded-md border border-zinc-800 bg-black/50 px-3 py-2 font-mono text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-emerald-500/40 focus:shadow-[0_0_10px_rgba(16,185,129,0.1)]"
               />
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
-                Region
-              </span>
-              <select
-                value={newRegion}
-                onChange={(e) => setNewRegion(e.target.value)}
-                className="rounded-md border border-zinc-800 bg-black/50 px-3 py-2 font-mono text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
-              >
-                <option value="us-east">US-EAST (Ashburn, VA)</option>
-              </select>
             </label>
 
             {createError && (
