@@ -24,11 +24,7 @@ const FAQS = [
     q: "What AI models does OpenClaw support?",
     a: "All of them. OpenClaw works with OpenAI (GPT-4o, o3), Anthropic (Claude), Google (Gemini), Ollama (local models), OpenRouter, and any OpenAI-compatible endpoint. Switch models anytime with openclaw configure.",
   },
-  {
-    q: "What happens to my data if I cancel?",
-    a: "You get a final backup download link before your instance is removed. Your data is deleted from our servers 30 days after cancellation.",
-  },
-  {
+{
     q: "What integrations are available?",
     a: "850+ tools via Composio — GitHub, Gmail, Slack, Notion, Linear, Stripe, Google Sheets, Discord, Trello, Jira, Figma, and hundreds more. One click to authenticate, zero config.",
   },
