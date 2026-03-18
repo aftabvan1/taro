@@ -175,7 +175,7 @@ export const provisionInstance = async (
   // Write docker-compose.yml — bridge networking with explicit port mapping
   // Each container gets its own isolated network; only necessary ports are exposed on 127.0.0.1
   // Note: OpenClaw's internal supervisor spawns multiple gateway processes during startup;
-  // 2 CPUs + 6GB mem + 120s healthcheck start_period prevents OOM kills during this phase
+  // 2 CPUs + 4GB mem (+ 1GB swap) + security hardening; 120s healthcheck start_period for startup
   const compose = `
 services:
   openclaw:
@@ -187,12 +187,18 @@ services:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     environment:
-      - NODE_OPTIONS=--max-old-space-size=2048
+      - NODE_OPTIONS=--max-old-space-size=1536
     restart: unless-stopped
-    mem_limit: 6g
-    memswap_limit: 8g
+    mem_limit: 4g
+    memswap_limit: 5g
+    mem_swappiness: 30
     cpus: 2
     pids_limit: 256
+    oom_score_adj: -200
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+      - /run:size=64m,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -222,6 +228,11 @@ COMPOSEEOF`
       `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
     );
 
+    // Kill any rogue process occupying the ttyd port before starting the service
+    await conn.execCommand(
+      `fuser -k ${ports.ttyd}/tcp 2>/dev/null || true`
+    );
+
     // Create ttyd systemd service that execs into the OpenClaw container
     await conn.execCommand(
       `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
@@ -230,6 +241,7 @@ Description=ttyd terminal for ${containerName}
 After=docker.service
 
 [Service]
+ExecStartPre=/bin/sh -c 'fuser -k ${ports.ttyd}/tcp 2>/dev/null || true'
 ExecStart=/usr/bin/ttyd -i 127.0.0.1 -p ${ports.ttyd} -W docker exec -it ${containerName}-openclaw /bin/sh
 Restart=always
 RestartSec=3
@@ -362,7 +374,7 @@ export const reprovisionInstance = async (
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
-  // Rebuild the docker-compose.yml with bridge networking + resource limits
+  // Rebuild the docker-compose.yml with bridge networking + 4GB memory + security hardening
   const compose = `
 services:
   openclaw:
@@ -374,12 +386,18 @@ services:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     environment:
-      - NODE_OPTIONS=--max-old-space-size=2048
+      - NODE_OPTIONS=--max-old-space-size=1536
     restart: unless-stopped
-    mem_limit: 6g
-    memswap_limit: 8g
+    mem_limit: 4g
+    memswap_limit: 5g
+    mem_swappiness: 30
     cpus: 2
     pids_limit: 256
+    oom_score_adj: -200
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+      - /run:size=64m,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -414,6 +432,11 @@ COMPOSEEOF`
     `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
   );
 
+  // Kill any rogue process occupying the ttyd port before starting the service
+  await conn.execCommand(
+    `fuser -k ${ttydPort}/tcp 2>/dev/null || true`
+  );
+
   // Create/update ttyd systemd service on host
   await conn.execCommand(
     `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
@@ -422,6 +445,7 @@ Description=ttyd terminal for ${containerName}
 After=docker.service
 
 [Service]
+ExecStartPre=/bin/sh -c 'fuser -k ${ttydPort}/tcp 2>/dev/null || true'
 ExecStart=/usr/bin/ttyd -i 127.0.0.1 -p ${ttydPort} -W docker exec -it ${containerName}-openclaw /bin/sh
 Restart=always
 RestartSec=3
