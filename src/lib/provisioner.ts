@@ -160,6 +160,7 @@ export const provisionInstance = async (
         ],
       },
       auth: { mode: "token", token: mcAuthToken },
+      bind: "lan",
     },
   }, null, 2);
   await conn.execCommand(
