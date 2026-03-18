@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Zap,
   ArrowRight,
+  Cpu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -283,6 +284,62 @@ const guides: Guide[] = [
     tips: [
       "Use an app-specific password, not your main email password",
       "You can configure auto-reply rules in OpenClaw's agent settings",
+    ],
+  },
+  {
+    id: "model",
+    title: "Change AI Model",
+    description: "Switch the underlying LLM your OpenClaw agent uses — choose between OpenAI, Anthropic, local models, and more.",
+    icon: <Cpu className="h-4 w-4" />,
+    iconBg: "bg-rose-500/10",
+    iconBorder: "border-rose-500/20",
+    steps: [
+      {
+        title: "Open the Terminal",
+        description: "Go to the Terminal page in your Taro dashboard.",
+      },
+      {
+        title: "Run the configure command",
+        description: "In your OpenClaw terminal, run:",
+        command: "openclaw configure",
+      },
+      {
+        title: "Select Model / LLM Provider",
+        description: "Choose the model/provider option from the configuration menu. You'll see a list of supported providers.",
+      },
+      {
+        title: "Choose your provider",
+        description: "Select from the available providers:",
+        substeps: [
+          "OpenAI — GPT-4o, GPT-4o-mini, o1, o3, etc.",
+          "Anthropic — Claude Sonnet, Claude Opus, Claude Haiku",
+          "Google — Gemini 2.5 Pro, Gemini 2.5 Flash",
+          "Ollama — run local/open-source models (LLaMA, Mistral, Qwen, etc.)",
+          "OpenRouter — access 100+ models through a single API",
+          "Any OpenAI-compatible endpoint",
+        ],
+      },
+      {
+        title: "Enter your API key",
+        description: "Paste the API key for your chosen provider when prompted.",
+        note: "For Ollama (local models), no API key is needed — just make sure Ollama is running in your container.",
+      },
+      {
+        title: "Select the specific model",
+        description: "Pick which model to use from the provider. For example, gpt-4o or claude-sonnet-4-20250514.",
+      },
+      {
+        title: "Verify the change",
+        description: "Send a test message to your agent. You can check which model is active by running:",
+        command: "openclaw status",
+      },
+    ],
+    tips: [
+      "You can switch models at any time — your agent's memory and configuration are preserved",
+      "Smaller models (GPT-4o-mini, Haiku) are faster and cheaper for simple tasks",
+      "For complex reasoning, use GPT-4o, Claude Opus, or o3",
+      "If you're using Ollama, make sure the model is pulled first with ollama pull <model-name>",
+      "Your API key is stored locally in your OpenClaw instance — Taro never sees it",
     ],
   },
 ];
