@@ -161,6 +161,7 @@ export const provisionInstance = async (
       },
       auth: { mode: "token", token: mcAuthToken },
       bind: "lan",
+      trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
     },
   }, null, 2);
   await conn.execCommand(
@@ -173,6 +174,8 @@ export const provisionInstance = async (
 
   // Write docker-compose.yml — bridge networking with explicit port mapping
   // Each container gets its own isolated network; only necessary ports are exposed on 127.0.0.1
+  // Note: OpenClaw's internal supervisor spawns multiple gateway processes during startup;
+  // 2 CPUs + 6GB mem + 120s healthcheck start_period prevents OOM kills during this phase
   const compose = `
 services:
   openclaw:
@@ -184,11 +187,11 @@ services:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     environment:
-      - NODE_OPTIONS=--max-old-space-size=3072
+      - NODE_OPTIONS=--max-old-space-size=2048
     restart: unless-stopped
-    mem_limit: 4g
-    memswap_limit: 6g
-    cpus: 1
+    mem_limit: 6g
+    memswap_limit: 8g
+    cpus: 2
     pids_limit: 256
     security_opt:
       - no-new-privileges:true
@@ -196,6 +199,12 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \\"fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\\""]
+      interval: 180s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
 `;
 
   await conn.execCommand(
@@ -234,6 +243,33 @@ systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemc
     // Deploy OpenClaw sync daemon
     await deploySyncDaemon(conn, instanceName, instanceId, ports.mc);
 
+    // Create auto-approve service for OpenClaw device pairing
+    // OpenClaw requires browser clients to be "paired" as devices — this auto-approves them
+    await conn.execCommand(
+      `cat > /etc/systemd/system/taro-autopair-${instanceName}.service << AUTOPAIREOF
+[Unit]
+Description=Auto-approve OpenClaw device pairing for ${containerName}
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'docker exec ${containerName}-openclaw openclaw devices approve --latest 2>/dev/null || true'
+AUTOPAIREOF
+
+cat > /etc/systemd/system/taro-autopair-${instanceName}.timer << TIMEREOF
+[Unit]
+Description=Auto-approve OpenClaw device pairing timer for ${containerName}
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5s
+
+[Install]
+WantedBy=timers.target
+TIMEREOF
+systemctl daemon-reload && systemctl enable taro-autopair-${instanceName}.timer && systemctl start taro-autopair-${instanceName}.timer`
+    );
+
     // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy
     // ttyd requires a terminal token query param for authentication
     const openclawDomain = `${instanceName}.${instanceDomain}`;
@@ -266,7 +302,8 @@ systemctl reload caddy`
     logger.error(`Provisioning failed after container start for ${instanceName}, rolling back:`, provisionError);
     try {
       await conn.execCommand(`cd ${instanceDir} && docker compose down --remove-orphans 2>/dev/null || true`);
-      await conn.execCommand(`systemctl stop taro-ttyd-${instanceName} 2>/dev/null || true`);
+      await conn.execCommand(`systemctl stop taro-ttyd-${instanceName} taro-autopair-${instanceName}.timer 2>/dev/null || true`);
+      await conn.execCommand(`systemctl disable taro-autopair-${instanceName}.timer 2>/dev/null || true`);
       await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null || true`);
       await conn.execCommand(`rm -f /etc/caddy/sites/${instanceName}.caddy`);
       await conn.execCommand(`rm -rf ${instanceDir}`);
@@ -337,11 +374,11 @@ services:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
     environment:
-      - NODE_OPTIONS=--max-old-space-size=3072
+      - NODE_OPTIONS=--max-old-space-size=2048
     restart: unless-stopped
-    mem_limit: 4g
-    memswap_limit: 6g
-    cpus: 1
+    mem_limit: 6g
+    memswap_limit: 8g
+    cpus: 2
     pids_limit: 256
     security_opt:
       - no-new-privileges:true
@@ -349,6 +386,12 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \\"fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\\""]
+      interval: 180s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
 `;
 
   // Write updated compose file
@@ -417,6 +460,37 @@ SYNCEOF`
     } catch {
       // sync script update is best-effort during reprovision
     }
+  }
+
+  // Ensure auto-approve timer exists for device pairing
+  const autopairCheck = await conn.execCommand(
+    `systemctl is-active taro-autopair-${instanceName}.timer 2>/dev/null`
+  );
+  if (autopairCheck.stdout.trim() !== "active") {
+    await conn.execCommand(
+      `cat > /etc/systemd/system/taro-autopair-${instanceName}.service << AUTOPAIREOF
+[Unit]
+Description=Auto-approve OpenClaw device pairing for ${containerName}
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'docker exec ${containerName}-openclaw openclaw devices approve --latest 2>/dev/null || true'
+AUTOPAIREOF
+
+cat > /etc/systemd/system/taro-autopair-${instanceName}.timer << TIMEREOF
+[Unit]
+Description=Auto-approve OpenClaw device pairing timer for ${containerName}
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5s
+
+[Install]
+WantedBy=timers.target
+TIMEREOF
+systemctl daemon-reload && systemctl enable taro-autopair-${instanceName}.timer && systemctl start taro-autopair-${instanceName}.timer`
+    );
   }
 
   // Rewrite Caddy config and reload — ensures reverse proxy reconnects
@@ -525,7 +599,7 @@ export const stopInstance = async (containerName: string) => {
     await conn.execCommand(
       `cd /opt/taro/instances/${instanceName} && docker compose stop`
     );
-    await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null`);
+    await conn.execCommand(`systemctl stop taro-sync-${instanceName} taro-autopair-${instanceName}.timer 2>/dev/null`);
   } finally {
     conn.dispose();
   }
@@ -539,7 +613,7 @@ export const startInstance = async (containerName: string) => {
     await conn.execCommand(
       `cd /opt/taro/instances/${instanceName} && docker compose start`
     );
-    await conn.execCommand(`systemctl start taro-sync-${instanceName} 2>/dev/null`);
+    await conn.execCommand(`systemctl start taro-sync-${instanceName} taro-autopair-${instanceName}.timer 2>/dev/null`);
   } finally {
     conn.dispose();
   }
@@ -554,6 +628,7 @@ export const restartInstance = async (containerName: string) => {
       `cd /opt/taro/instances/${instanceName} && docker compose restart`
     );
     await conn.execCommand(`systemctl restart taro-sync-${instanceName} 2>/dev/null`);
+    await conn.execCommand(`systemctl restart taro-autopair-${instanceName}.timer 2>/dev/null`);
   } finally {
     conn.dispose();
   }
@@ -567,9 +642,9 @@ export const deleteInstance = async (containerName: string) => {
   try {
     await conn.execCommand(`cd ${instanceDir} && docker compose down -v`);
     await conn.execCommand(`rm -rf ${instanceDir}`);
-    // Clean up systemd services (ttyd, sync) and Caddy site config
+    // Clean up systemd services (ttyd, sync, autopair) and Caddy site config
     await conn.execCommand(
-      `systemctl stop taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; systemctl disable taro-ttyd-${instanceName} taro-sync-${instanceName} 2>/dev/null; rm -f /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service; rm -f /etc/caddy/sites/${instanceName}.caddy; systemctl daemon-reload; systemctl reload caddy 2>/dev/null`
+      `systemctl stop taro-ttyd-${instanceName} taro-sync-${instanceName} taro-autopair-${instanceName}.timer 2>/dev/null; systemctl disable taro-ttyd-${instanceName} taro-sync-${instanceName} taro-autopair-${instanceName}.timer 2>/dev/null; rm -f /etc/systemd/system/taro-ttyd-${instanceName}.service /etc/systemd/system/taro-sync-${instanceName}.service /etc/systemd/system/taro-autopair-${instanceName}.service /etc/systemd/system/taro-autopair-${instanceName}.timer; rm -f /etc/caddy/sites/${instanceName}.caddy; systemctl daemon-reload; systemctl reload caddy 2>/dev/null`
     );
   } finally {
     conn.dispose();
