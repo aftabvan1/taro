@@ -288,7 +288,7 @@ ${ttydDomain} {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
     @no_token not query token=${terminalToken}
-    respond @no_token 401 {
+    respond @no_token 403 {
         body "Unauthorized"
         close
     }
@@ -520,7 +520,7 @@ ${ttydDomain} {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
     @no_token not query token=${termToken}
-    respond @no_token 401 {
+    respond @no_token 403 {
         body "Unauthorized"
         close
     }
