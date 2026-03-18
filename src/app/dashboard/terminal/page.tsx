@@ -240,7 +240,7 @@ export default function TerminalPage() {
 
           {/* Open in new tab */}
           <a
-            href={terminalUrl!}
+            href={terminalUrl ?? ""}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-white/[0.06] p-1.5 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/5"
@@ -268,7 +268,7 @@ export default function TerminalPage() {
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/[0.06]">
         <iframe
           key={iframeKey}
-          src={terminalUrl!}
+          src={terminalUrl ?? ""}
           title="Terminal"
           className="h-full w-full border-0 bg-[#0a0a0b]"
           onLoad={() => setConnected(true)}

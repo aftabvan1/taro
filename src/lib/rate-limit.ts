@@ -11,8 +11,10 @@ let requestCount = 0;
  * In-memory sliding window rate limiter.
  * Tracks requests per IP within a time window.
  *
- * Resets on Vercel cold starts — acceptable for app-layer protection.
- * For production, pair with Cloudflare rate limiting.
+ * LIMITATION: Resets on every Vercel cold start and deploy.
+ * This provides basic protection only — brute force across cold starts bypasses it.
+ * Account lockout (5 failed attempts) in auth.ts provides the real security layer.
+ * TODO: Move to Cloudflare rate limiting or DB-backed store for production hardening.
  */
 export function rateLimit(
   req: NextRequest,

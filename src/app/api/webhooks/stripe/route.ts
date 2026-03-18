@@ -42,6 +42,18 @@ export async function POST(req: NextRequest) {
           break;
         }
 
+        // Idempotency: skip if user already has this subscription
+        const [existingUser] = await db
+          .select({ plan: users.plan, stripeSubscriptionId: users.stripeSubscriptionId })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (existingUser?.stripeSubscriptionId === (session.subscription as string)) {
+          logger.info(`Webhook already processed for user ${userId}, skipping`);
+          break;
+        }
+
         await db
           .update(users)
           .set({

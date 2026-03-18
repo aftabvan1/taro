@@ -2,7 +2,7 @@ import { NodeSSH } from "node-ssh";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
 import { seedInstanceData } from "@/lib/seed-instance";
 import { logger } from "@/lib/logger";
@@ -33,23 +33,17 @@ const getSSHConnection = async () => {
 };
 
 /**
- * Allocate ports based on the highest currently-used port in the DB,
- * avoiding collisions from concurrent provisioning.
+ * Allocate ports using an atomic DB query to prevent race conditions.
+ * Uses COALESCE + MAX to find the next available port block in a single query.
  */
 const allocatePorts = async () => {
-  const allInstances = await db
-    .select({ openclawPort: instances.openclawPort })
+  const [result] = await db
+    .select({
+      maxPort: sql<number>`COALESCE(MAX(${instances.openclawPort}), ${PORT_BASE - PORT_STRIDE})`,
+    })
     .from(instances);
 
-  // Find the highest allocated openclaw port
-  let maxPort = PORT_BASE - PORT_STRIDE;
-  for (const inst of allInstances) {
-    if (inst.openclawPort && inst.openclawPort > maxPort) {
-      maxPort = inst.openclawPort;
-    }
-  }
-
-  const base = maxPort + PORT_STRIDE;
+  const base = (result?.maxPort ?? PORT_BASE - PORT_STRIDE) + PORT_STRIDE;
   return {
     openclaw: base,
     ttyd: base + 1,
@@ -210,14 +204,15 @@ COMPOSEEOF`
   // Start the stack
   await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
 
-  // Install ttyd on host if not present
-  await conn.execCommand(
-    `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
-  );
+  try {
+    // Install ttyd on host if not present
+    await conn.execCommand(
+      `which ttyd || (apt-get update -qq && apt-get install -y -qq ttyd)`
+    );
 
-  // Create ttyd systemd service that execs into the OpenClaw container
-  await conn.execCommand(
-    `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
+    // Create ttyd systemd service that execs into the OpenClaw container
+    await conn.execCommand(
+      `cat > /etc/systemd/system/taro-ttyd-${instanceName}.service << TTYDEOF
 [Unit]
 Description=ttyd terminal for ${containerName}
 After=docker.service
@@ -231,17 +226,17 @@ RestartSec=3
 WantedBy=multi-user.target
 TTYDEOF
 systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemctl start taro-ttyd-${instanceName}`
-  );
+    );
 
-  // Deploy OpenClaw sync daemon
-  await deploySyncDaemon(conn, instanceName, instanceId, ports.mc);
+    // Deploy OpenClaw sync daemon
+    await deploySyncDaemon(conn, instanceName, instanceId, ports.mc);
 
-  // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy
-  // ttyd requires a terminal token query param for authentication
-  const openclawDomain = `${instanceName}.${instanceDomain}`;
-  const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
-  await conn.execCommand(
-    `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
+    // Add HTTPS reverse proxy entries for OpenClaw and ttyd via Caddy
+    // ttyd requires a terminal token query param for authentication
+    const openclawDomain = `${instanceName}.${instanceDomain}`;
+    const ttydDomain = `ttyd-${instanceName}.${instanceDomain}`;
+    await conn.execCommand(
+      `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
 ${openclawDomain} {
     reverse_proxy 127.0.0.1:${ports.openclaw}
 }
@@ -256,7 +251,22 @@ ${ttydDomain} {
 }
 CADDYEOF
 systemctl reload caddy`
-  );
+    );
+  } catch (provisionError) {
+    // Rollback: stop and remove containers if post-startup steps fail
+    logger.error(`Provisioning failed after container start for ${instanceName}, rolling back:`, provisionError);
+    try {
+      await conn.execCommand(`cd ${instanceDir} && docker compose down --remove-orphans 2>/dev/null || true`);
+      await conn.execCommand(`systemctl stop taro-ttyd-${instanceName} 2>/dev/null || true`);
+      await conn.execCommand(`systemctl stop taro-sync-${instanceName} 2>/dev/null || true`);
+      await conn.execCommand(`rm -f /etc/caddy/sites/${instanceName}.caddy`);
+      await conn.execCommand(`rm -rf ${instanceDir}`);
+    } catch (cleanupErr) {
+      logger.error(`Rollback cleanup also failed for ${instanceName}:`, cleanupErr);
+    }
+    conn.dispose();
+    throw provisionError;
+  }
 
   // Update DB with connection details + terminal auth token
   await db

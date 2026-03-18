@@ -51,20 +51,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check account lockout
-    if (
-      user.lockedUntil &&
-      new Date(user.lockedUntil).getTime() > Date.now()
-    ) {
-      return NextResponse.json(
-        { error: "Account temporarily locked. Please try again later." },
-        { status: 423 }
-      );
-    }
-
     const valid = await verifyPassword(password, user.passwordHash);
 
     if (!valid) {
+      // Check if account is locked (check AFTER password verify so correct password can still unlock)
+      if (
+        user.lockedUntil &&
+        new Date(user.lockedUntil).getTime() > Date.now()
+      ) {
+        return NextResponse.json(
+          { error: "Account temporarily locked. Please try again later." },
+          { status: 423 }
+        );
+      }
+
       // Increment failed attempts
       const newAttempts = (user.failedLoginAttempts || 0) + 1;
       const lockout =
@@ -86,8 +86,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Reset failed attempts on successful login
-    if (user.failedLoginAttempts > 0) {
+    // Correct password — always reset failed attempts and lockout
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
       await db
         .update(users)
         .set({ failedLoginAttempts: 0, lockedUntil: null })

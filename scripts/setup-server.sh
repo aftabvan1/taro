@@ -25,22 +25,25 @@ docker compose version || {
   exit 1
 }
 
-# ─── Caddy ──────────────────────────────────────────────────────────────────────
-echo "==> Installing Caddy..."
+# ─── Caddy (with Cloudflare DNS plugin for wildcard TLS) ─────────────────────
+echo "==> Installing Caddy with Cloudflare DNS plugin..."
 if ! command -v caddy &>/dev/null; then
   apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   apt-get update -qq
   apt-get install -y -qq caddy
-else
-  echo "    Caddy already installed: $(caddy version)"
 fi
+# Add Cloudflare DNS module (required for wildcard TLS on *.instances.taroagent.com)
+caddy add-package github.com/caddy-dns/cloudflare
+echo "    Caddy installed: $(caddy version)"
+echo "    Cloudflare module: $(caddy list-modules 2>/dev/null | grep cloudflare || echo 'checking...')"
 
 # ─── Directory Structure ────────────────────────────────────────────────────────
 echo "==> Creating Taro directories..."
 mkdir -p /opt/taro/instances
 mkdir -p /opt/taro/backups
+mkdir -p /etc/caddy/sites
 chmod 700 /opt/taro
 chmod 700 /opt/taro/instances
 chmod 700 /opt/taro/backups
@@ -52,7 +55,10 @@ cat > /etc/caddy/Caddyfile << 'CADDYEOF'
 # Managed automatically by Taro provisioner
 # Do not edit manually
 
-# Fallback for unmatched subdomains
+# Import per-instance reverse proxy configs
+import /etc/caddy/sites/*.caddy
+
+# Fallback for unmatched subdomains (also handles wildcard TLS)
 *.instances.taroagent.com {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}

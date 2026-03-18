@@ -137,7 +137,16 @@ export async function DELETE(
       try {
         await deleteInstance(instance.containerName);
       } catch (cleanupError) {
-        logger.error("Container cleanup error (proceeding with DB deletion):", cleanupError);
+        logger.error("Container cleanup failed:", cleanupError);
+        // Don't delete DB record if server cleanup fails — mark as error so user can retry
+        await db
+          .update(instances)
+          .set({ status: "error" })
+          .where(eq(instances.id, id));
+        return NextResponse.json(
+          { error: "Failed to clean up server resources. Instance marked as error — please retry." },
+          { status: 502 }
+        );
       }
     }
 

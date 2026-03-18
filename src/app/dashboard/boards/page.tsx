@@ -248,7 +248,7 @@ export default function BoardsPage() {
       setNewTaskAgent("");
       setAddingTaskColumn(null);
     } catch {
-      // ignore
+      setError("Failed to create task. Please try again.");
     } finally {
       setCreatingTask(false);
     }

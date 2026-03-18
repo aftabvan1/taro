@@ -242,6 +242,16 @@ export default function IntegrationsPage() {
             <SkeletonCard key={i} />
           ))}
         </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-500/10 bg-red-500/5 py-12">
+          <p className="font-mono text-xs text-red-400">{error}</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); fetchData(); }}
+            className="rounded-lg border border-white/[0.06] px-3 py-1.5 font-mono text-xs text-zinc-400 transition-colors hover:bg-white/[0.03]"
+          >
+            RETRY
+          </button>
+        </div>
       ) : (
         <motion.div
           variants={containerVariants}
