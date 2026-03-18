@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   ExternalLink,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
@@ -124,6 +125,7 @@ function buildNavItems(instance?: Instance | null): NavItem[] {
     { label: "Web Chat", icon: MessageCircle, externalHref: webChatUrl, isExternal: true, section: "Tools" },
     { label: "Terminal", icon: Terminal, href: "/dashboard/terminal", section: "Tools" },
     { label: "Integrations", icon: Plug, href: "/dashboard/integrations", section: "Tools" },
+    { label: "Guides", icon: BookOpen, href: "/dashboard/guides", section: "Tools" },
 
     // SYSTEM
     { label: "Backups", icon: HardDrive, href: "/dashboard/backups", section: "System" },
