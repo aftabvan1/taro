@@ -32,9 +32,7 @@ export async function GET(req: NextRequest) {
       .where(eq(instances.userId, auth.userId))
       .orderBy(instances.createdAt);
 
-    // Strip sensitive fields from response
-    const sanitized = userInstances.map(({ mcAuthToken: _, ...rest }) => rest);
-    return NextResponse.json({ data: sanitized });
+    return NextResponse.json({ data: userInstances });
   } catch (error) {
     logger.error("List instances error:", error);
     return NextResponse.json(
