@@ -455,7 +455,7 @@ export default function DashboardOverview() {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-3">
                 <div>
-                  <p className="font-mono text-sm font-bold text-zinc-200">Taro Hobby</p>
+                  <p className="font-mono text-sm font-bold text-zinc-200">Taro Pro</p>
                   <p className="font-mono text-[10px] text-zinc-500">
                     1 instance &middot; terminal &middot; backups &middot; mission control
                   </p>
@@ -582,18 +582,6 @@ export default function DashboardOverview() {
       className="flex flex-col gap-6"
     >
       {/* ================================================================== */}
-      {/* CONNECTION STATUS (always visible when instance exists)             */}
-      {/* ================================================================== */}
-      {instance && token && (
-        <motion.div variants={itemVariants}>
-          <ConnectionStatus
-            token={token}
-            onPushSync={handlePushSync}
-            pushSyncing={syncing}
-          />
-        </motion.div>
-      )}
-
       {/* ================================================================== */}
       {/* GETTING STARTED (shown for new users)                               */}
       {/* ================================================================== */}
