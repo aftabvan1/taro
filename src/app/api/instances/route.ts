@@ -18,7 +18,6 @@ const createInstanceSchema = z.object({
       /^[a-z0-9-]+$/,
       "Name must be lowercase alphanumeric with hyphens only"
     ),
-  region: z.enum(["us-east"]).default("us-east"),
 });
 
 // GET /api/instances — list user's instances
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, region } = parsed.data;
+    const { name } = parsed.data;
 
     // Require active Stripe subscription before allowing instance creation
     const [user] = await db
@@ -101,7 +100,6 @@ export async function POST(req: NextRequest) {
       .values({
         userId: auth.userId,
         name,
-        region,
         status: "provisioning",
         mcAuthToken,
       })
@@ -110,7 +108,7 @@ export async function POST(req: NextRequest) {
     await logActivity(
       instance.id,
       "deploy",
-      `Instance "${name}" created in ${region}`
+      `Instance "${name}" created`
     );
 
     // Trigger Docker provisioning (fire-and-forget — don't block the response)

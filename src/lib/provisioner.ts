@@ -240,10 +240,16 @@ systemctl daemon-reload && systemctl enable taro-ttyd-${instanceName} && systemc
     await conn.execCommand(
       `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
 ${openclawDomain} {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
     reverse_proxy 127.0.0.1:${ports.openclaw}
 }
 
 ${ttydDomain} {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
     @no_token not query token=${terminalToken}
     respond @no_token 401 {
         body "Unauthorized"
@@ -428,10 +434,16 @@ SYNCEOF`
   await conn.execCommand(
     `cat > /etc/caddy/sites/${instanceName}.caddy << 'CADDYEOF'
 ${openclawDomain} {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
     reverse_proxy 127.0.0.1:${openclawPort}
 }
 
 ${ttydDomain} {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
     @no_token not query token=${termToken}
     respond @no_token 401 {
         body "Unauthorized"
