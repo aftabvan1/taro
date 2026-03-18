@@ -58,7 +58,7 @@ export const Pricing = () => {
           </p>
         </motion.div>
 
-        <div className="mx-auto grid max-w-5xl items-start gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl items-start justify-center gap-6 md:grid-cols-2">
           {PLANS.map((plan) => (
             <motion.div
               key={plan.name}
