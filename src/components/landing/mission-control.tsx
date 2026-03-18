@@ -263,7 +263,7 @@ export const MissionControl = () => {
           </ul>
           <div className="mt-8">
             <Button href="/auth/register">
-              Try Mission Control
+              Deploy and see it live
               <ArrowRight size={16} />
             </Button>
           </div>

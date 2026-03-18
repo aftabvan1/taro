@@ -57,7 +57,7 @@ export const Navbar = () => {
               Log in
             </Button>
             <Button size="sm" href="/auth/register">
-              Get Started
+              Deploy Now
             </Button>
           </div>
 
@@ -107,7 +107,7 @@ export const Navbar = () => {
                   Log in
                 </Button>
                 <Button size="lg" href="/auth/register">
-                  Get Started
+                  Deploy Now
                 </Button>
               </motion.div>
             </div>

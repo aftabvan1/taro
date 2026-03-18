@@ -35,8 +35,9 @@ function HeroOrbitDeck() {
 
   useEffect(() => {
     if (!sectionRef.current || typeof window === "undefined") {
-      setVisible(true);
-      return;
+      // Defer the state update to avoid synchronous setState in effect
+      const id = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(id);
     }
     const node = sectionRef.current;
     const observer = new IntersectionObserver(
@@ -92,18 +93,18 @@ function HeroOrbitDeck() {
               <circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.6" />
               <circle cx="12" cy="12" r="3" fill="currentColor" />
             </svg>
-            Now in public beta
+            Beta pricing — $14/mo locked in forever
           </span>
 
           <h1 className="mt-8 font-[family-name:var(--font-fredoka)] text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
-            Stop managing servers.{" "}
-            <span className="text-gradient">Start commanding agents.</span>
+            Your OpenClaw agent,{" "}
+            <span className="text-gradient">live in 30 seconds.</span>
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-foreground/50 md:text-lg">
-            The only managed OpenClaw platform with a built-in dashboard.
-            Deploy in 30 seconds. Monitor, manage, and control your AI agents
-            from one place — no DevOps required.
+            The only managed OpenClaw platform with a built-in Mission Control
+            dashboard. Terminal access, automated backups, real-time monitoring,
+            and 850+ integrations — $14/mo.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -117,9 +118,11 @@ function HeroOrbitDeck() {
           </div>
 
           <div className="mt-6 flex items-center gap-4 font-mono text-xs text-foreground/30">
+            <span>$14/mo</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-accent/40" />
             <span>Cancel anytime</span>
             <span className="h-1.5 w-1.5 rounded-full bg-accent/40" />
-            <span>Live in 30 seconds</span>
+            <span>30-second deploy</span>
           </div>
         </div>
 

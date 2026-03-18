@@ -51,10 +51,10 @@ export const Pricing = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Simple, transparent pricing
+            One plan. Everything included.
           </h2>
           <p className="mt-4 text-muted">
-            One plan, everything included. More tiers coming soon.
+            Terminal, dashboard, backups, monitoring, 850+ integrations. No hidden fees.
           </p>
         </motion.div>
 
@@ -76,15 +76,6 @@ export const Pricing = () => {
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />
               )}
 
-              {/* Blur overlay for coming soon tiers */}
-              {plan.comingSoon && (
-                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-3xl backdrop-blur-[6px] bg-background/40">
-                  <span className="rounded-full border border-brand/20 bg-brand/10 px-4 py-1.5 font-mono text-sm font-medium text-brand">
-                    Coming Soon
-                  </span>
-                </div>
-              )}
-
               {/* Cup icon */}
               <div className={cn(
                 "mb-4 flex items-center gap-3",
@@ -95,7 +86,7 @@ export const Pricing = () => {
                   <span className="text-xs font-medium text-muted">{plan.cupSize}</span>
                   {plan.highlighted && (
                     <span className="ml-2 rounded-full bg-brand/10 px-2.5 py-0.5 font-mono text-[10px] text-brand ring-1 ring-brand/20">
-                      Available Now
+                      Beta price — locked in forever
                     </span>
                   )}
                 </div>

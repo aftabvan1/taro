@@ -1,22 +1,5 @@
 export const PLANS = [
   {
-    name: "Hobby",
-    price: 5,
-    description: "For side projects and experimentation",
-    cupSize: "Regular",
-    features: [
-      "1 vCPU, 2GB RAM",
-      "Full web terminal",
-      "Daily automated backups",
-      "Agent overview & task boards",
-      "Activity timeline",
-      "Community support",
-    ],
-    cta: "Coming Soon",
-    highlighted: false,
-    comingSoon: true,
-  },
-  {
     name: "Pro",
     price: 14,
     description: "Everything you need to ship agents to production",
@@ -31,7 +14,7 @@ export const PLANS = [
       "Custom fields & tags",
       "Priority support",
     ],
-    cta: "Get Started",
+    cta: "Deploy Now",
     highlighted: true,
     comingSoon: false,
   },
@@ -50,9 +33,9 @@ export const PLANS = [
       "Custom fields & tags",
       "Dedicated support + SLA",
     ],
-    cta: "Coming Soon",
+    cta: "Contact Us",
     highlighted: false,
-    comingSoon: true,
+    comingSoon: false,
   },
 ] as const;
 
