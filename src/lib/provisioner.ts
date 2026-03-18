@@ -182,9 +182,11 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=3072
     restart: unless-stopped
-    mem_limit: 1536m
-    memswap_limit: 2g
+    mem_limit: 4g
+    memswap_limit: 6g
     cpus: 1
     pids_limit: 256
     security_opt:
@@ -327,9 +329,11 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=3072
     restart: unless-stopped
-    mem_limit: 1536m
-    memswap_limit: 2g
+    mem_limit: 4g
+    memswap_limit: 6g
     cpus: 1
     pids_limit: 256
     security_opt:
