@@ -40,15 +40,20 @@ export default function TerminalPage() {
   const { instance, loading, token, refreshInstances } = useDashboard();
 
   const [connected, setConnected] = useState(false);
+  const [disconnected, setDisconnected] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [uptime, setUptime] = useState(0);
   const [reprovisioning, setReprovisioning] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const retryCountRef = useRef(0);
+  const maxRetries = 5;
 
   const handleReprovision = useCallback(async () => {
     if (!instance || reprovisioning) return;
     setReprovisioning(true);
+    retryCountRef.current = 0;
+    setDisconnected(false);
     try {
       const res = await fetch(`/api/instances/${instance.id}/reprovision`, {
         method: "POST",
@@ -87,13 +92,56 @@ export default function TerminalPage() {
 
   /* ---- Uptime counter ---- */
   useEffect(() => {
-    if (!connected) {
-      setUptime(0);
-      return;
-    }
+    if (!connected) return;
     const interval = setInterval(() => setUptime((u) => u + 1), 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      setUptime(0);
+    };
   }, [connected]);
+
+  /* ---- Health-check polling with auto-reconnect ---- */
+  useEffect(() => {
+    if (!connected || !terminalUrl) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        await fetch(terminalUrl, { mode: "no-cors", cache: "no-store" });
+        // Reachable — if we were disconnected, recover
+        if (disconnected) {
+          setDisconnected(false);
+          retryCountRef.current = 0;
+        }
+      } catch {
+        // Unreachable — mark disconnected and auto-reload iframe
+        if (!cancelled) {
+          retryCountRef.current += 1;
+          setDisconnected(true);
+          if (retryCountRef.current <= maxRetries) {
+            setIframeKey((k) => k + 1);
+          }
+        }
+      }
+      if (!cancelled) {
+        const delay =
+          retryCountRef.current > 0
+            ? Math.min(8000 * Math.pow(2, retryCountRef.current - 1), 30000)
+            : 8000;
+        timeoutId = setTimeout(poll, delay);
+      }
+    };
+
+    // Start polling after initial 8s delay
+    timeoutId = setTimeout(poll, 8000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [connected, terminalUrl, disconnected]);
 
   const formatUptime = (s: number) => {
     const h = Math.floor(s / 3600);
@@ -194,7 +242,9 @@ export default function TerminalPage() {
 
           {/* Connection indicator */}
           <div className="flex items-center gap-2">
-            {connected ? (
+            {disconnected ? (
+              <WifiOff className="h-3.5 w-3.5 text-amber-400" />
+            ) : connected ? (
               <Wifi className="h-3.5 w-3.5 text-emerald-400" />
             ) : (
               <WifiOff className="h-3.5 w-3.5 text-zinc-500" />
@@ -202,10 +252,18 @@ export default function TerminalPage() {
             <span
               className={cn(
                 "font-mono text-xs",
-                connected ? "text-emerald-400" : "text-zinc-500",
+                disconnected
+                  ? "text-amber-400"
+                  : connected
+                    ? "text-emerald-400"
+                    : "text-zinc-500",
               )}
             >
-              {connected ? "CONNECTED" : "CONNECTING..."}
+              {disconnected
+                ? "RECONNECTING..."
+                : connected
+                  ? "CONNECTED"
+                  : "CONNECTING..."}
             </span>
           </div>
         </div>
@@ -271,10 +329,45 @@ export default function TerminalPage() {
           src={terminalUrl ?? ""}
           title="Terminal"
           className="h-full w-full border-0 bg-[#0a0a0b]"
-          onLoad={() => setConnected(true)}
+          onLoad={() => {
+            setConnected(true);
+            setDisconnected(false);
+            retryCountRef.current = 0;
+          }}
           onError={() => setConnected(false)}
           allow="clipboard-read; clipboard-write"
         />
+
+        {/* Reconnecting overlay */}
+        {disconnected && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm">
+            {retryCountRef.current > maxRetries ? (
+              <>
+                <WifiOff className="h-8 w-8 text-red-400" />
+                <p className="font-mono text-sm text-red-400">
+                  Unable to reconnect
+                </p>
+                <button
+                  onClick={handleReprovision}
+                  disabled={reprovisioning}
+                  className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 font-mono text-xs text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  {reprovisioning ? "Reprovisioning..." : "Reprovision Terminal"}
+                </button>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-6 w-6 animate-spin text-amber-400" />
+                <p className="font-mono text-sm text-zinc-300">
+                  Connection lost. Reconnecting...
+                </p>
+                <p className="font-mono text-xs text-zinc-500">
+                  Attempt {retryCountRef.current} of {maxRetries}
+                </p>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );
