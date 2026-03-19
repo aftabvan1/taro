@@ -1,11 +1,15 @@
 import { db } from "@/lib/db";
 import { mcAgents, mcBoards, mcTasks, mcActivity } from "@/lib/db/schema";
 
-export async function seedInstanceData(instanceId: string): Promise<void> {
+export async function seedInstanceData(instanceId: string, agentFramework: string = "openclaw"): Promise<void> {
+  const isHermes = agentFramework === "hermes";
+  const agentName = isHermes ? "hermes-primary" : "openclaw-primary";
+  const frameworkLabel = isHermes ? "Hermes" : "OpenClaw";
+
   // 1. Create a default agent
   await db.insert(mcAgents).values({
     instanceId,
-    name: "openclaw-primary",
+    name: agentName,
     status: "active",
     tasksCompleted: 0,
   });
@@ -16,24 +20,24 @@ export async function seedInstanceData(instanceId: string): Promise<void> {
     .values({
       instanceId,
       name: "Getting Started",
-      description: "Default task board for your OpenClaw instance",
+      description: `Default task board for your ${frameworkLabel} instance`,
     })
     .returning();
 
   await db.insert(mcTasks).values([
     {
       boardId: board.id,
-      title: "Configure your OpenClaw instance",
+      title: `Configure your ${frameworkLabel} instance`,
       status: "done",
       priority: "high",
-      agentName: "openclaw-primary",
+      agentName: agentName,
     },
     {
       boardId: board.id,
       title: "Test agent communication",
       status: "in_progress",
       priority: "medium",
-      agentName: "openclaw-primary",
+      agentName: agentName,
     },
     {
       boardId: board.id,
@@ -49,8 +53,8 @@ export async function seedInstanceData(instanceId: string): Promise<void> {
     {
       instanceId,
       type: "agent_connected",
-      message: "OpenClaw primary agent initialized",
-      agentName: "openclaw-primary",
+      message: `${frameworkLabel} primary agent initialized`,
+      agentName: agentName,
     },
     {
       instanceId,
@@ -62,7 +66,7 @@ export async function seedInstanceData(instanceId: string): Promise<void> {
       instanceId,
       type: "task_completed",
       message: "Instance configuration completed",
-      agentName: "openclaw-primary",
+      agentName: agentName,
     },
   ]);
 }

@@ -5,6 +5,7 @@ import { backups, instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { createBackup } from "@/lib/backup";
 import { eq, desc, inArray } from "drizzle-orm";
+import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/backups — list user's backups
 export async function GET(req: NextRequest) {
@@ -44,6 +45,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/backups — create a new backup
 export async function POST(req: NextRequest) {
+  const limited = await rateLimit(req, { windowMs: 60 * 1000, max: 5 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 

@@ -9,8 +9,12 @@ import { cn } from "@/lib/utils";
 
 const FAQS = [
   {
-    q: "What is OpenClaw?",
-    a: "OpenClaw is a free, open-source AI agent framework with 61K+ GitHub stars. It runs on your own hardware, connects to 20+ messaging platforms (Telegram, Discord, WhatsApp, Slack, and more), and supports any LLM provider. Taro gives you managed hosting so you don't have to set it up yourself.",
+    q: "Can I switch between OpenClaw and Hermes?",
+    a: "Not on the same instance — they're different runtimes. But you can deploy one, try it, delete, and deploy the other in 30 seconds. We don't lock you in.",
+  },
+  {
+    q: "Why does Taro support two frameworks?",
+    a: "Because the 'best' framework depends on what you're building. OpenClaw excels at always-on multi-channel bots — Telegram, Discord, Slack, all at once. Hermes excels at long-running tasks where the agent needs to remember context across sessions and improve over time. We think you should pick the right tool, not be forced into one.",
   },
   {
     q: "How is Taro different from other hosting platforms?",
@@ -21,8 +25,8 @@ const FAQS = [
     a: "We don't expose SSH for security reasons. Instead, you get a full web terminal in your browser with complete shell access — install packages, debug, configure, run openclaw commands. Everything you'd do over SSH, without the setup.",
   },
   {
-    q: "What AI models does OpenClaw support?",
-    a: "All of them. OpenClaw works with OpenAI (GPT-4o, o3), Anthropic (Claude), Google (Gemini), Ollama (local models), OpenRouter, and any OpenAI-compatible endpoint. Switch models anytime with openclaw configure.",
+    q: "What AI models are supported?",
+    a: "All of them. Both OpenClaw and Hermes work with OpenAI, Anthropic, Google, OpenRouter, and any OpenAI-compatible endpoint. Switch models anytime from your dashboard settings.",
   },
 {
     q: "What integrations are available?",

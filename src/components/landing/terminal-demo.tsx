@@ -4,13 +4,13 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 
-const COMMAND = "taro deploy --prod";
+const COMMAND = "taro deploy --framework hermes --prod";
 const CHAR_DELAY = 0.05;
 const COMMAND_DURATION = COMMAND.length * CHAR_DELAY;
 
 const OUTPUT_LINES = [
   { text: "  Provisioning instance on eu-central-1...", color: "text-muted", delay: 0.6 },
-  { text: "  Installing OpenClaw v2.4.1...", color: "text-muted", delay: 1.2 },
+  { text: "  Installing agent runtime...", color: "text-muted", delay: 1.2 },
   { text: "  Configuring network & security policies...", color: "text-muted", delay: 1.8 },
   { text: "  Starting Mission Control backend...", color: "text-muted", delay: 2.3 },
   { text: "  Starting agent runtime...", color: "text-muted", delay: 2.8 },

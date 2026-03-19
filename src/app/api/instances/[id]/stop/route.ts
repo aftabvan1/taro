@@ -6,11 +6,15 @@ import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { logActivity } from "@/lib/activity";
 import { stopInstance } from "@/lib/provisioner";
 import { eq, and } from "drizzle-orm";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = await rateLimit(req, { windowMs: 60 * 1000, max: 10 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -38,7 +42,7 @@ export async function POST(
     }
 
     if (instance.containerName) {
-      await stopInstance(instance.containerName);
+      await stopInstance(instance.containerName, instance.agentFramework ?? undefined);
     }
 
     const [updated] = await db

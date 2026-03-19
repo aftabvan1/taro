@@ -36,7 +36,7 @@ export const Footer = () => {
               <TaroMascot mood="sleeping" size="sm" />
             </div>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted/70">
-              Managed OpenClaw hosting with built-in mission control. Deploy in
+              Managed AI agent hosting with built-in mission control. Deploy in
               seconds, manage like a pro.
             </p>
           </div>

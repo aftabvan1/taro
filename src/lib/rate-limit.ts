@@ -1,63 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { rateLimitEntries } from "@/lib/db/schema";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { logger } from "@/lib/logger";
 
-interface RateLimitEntry {
-  timestamps: number[];
-}
-
-const store = new Map<string, RateLimitEntry>();
-let requestCount = 0;
+let cleanupCounter = 0;
 
 /**
- * In-memory sliding window rate limiter.
- * Tracks requests per IP within a time window.
- *
- * LIMITATION: Resets on every Vercel cold start and deploy.
- * This provides basic protection only — brute force across cold starts bypasses it.
- * Account lockout (5 failed attempts) in auth.ts provides the real security layer.
- * TODO: Move to Cloudflare rate limiting or DB-backed store for production hardening.
+ * DB-backed sliding window rate limiter.
+ * Persists across Vercel cold starts and deploys.
  */
-export function rateLimit(
+export async function rateLimit(
   req: NextRequest,
   opts: { windowMs: number; max: number }
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
     "unknown";
 
-  const now = Date.now();
-  const key = ip;
+  const windowStart = new Date(Date.now() - opts.windowMs);
 
-  // Periodic cleanup to prevent memory leaks
-  requestCount++;
-  if (requestCount % 100 === 0) {
-    for (const [k, entry] of store) {
-      entry.timestamps = entry.timestamps.filter(
-        (t) => now - t < opts.windowMs
+  try {
+    // Count requests in the current window
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(rateLimitEntries)
+      .where(
+        and(
+          eq(rateLimitEntries.key, ip),
+          gte(rateLimitEntries.timestamp, windowStart)
+        )
       );
-      if (entry.timestamps.length === 0) store.delete(k);
+
+    const count = result?.count ?? 0;
+
+    if (count >= opts.max) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil(opts.windowMs / 1000)) },
+        }
+      );
     }
+
+    // Record this request
+    await db.insert(rateLimitEntries).values({ key: ip });
+
+    // Periodic cleanup of expired entries (every 50th request)
+    cleanupCounter++;
+    if (cleanupCounter % 50 === 0) {
+      db.delete(rateLimitEntries)
+        .where(sql`${rateLimitEntries.timestamp} < now() - interval '1 hour'`)
+        .catch((e) => logger.error("Rate limit cleanup failed:", e));
+    }
+
+    return null;
+  } catch (error) {
+    // If DB is down, fall through (don't block requests)
+    logger.error("Rate limit check failed:", error);
+    return null;
   }
-
-  const entry = store.get(key) ?? { timestamps: [] };
-
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter((t) => now - t < opts.windowMs);
-
-  if (entry.timestamps.length >= opts.max) {
-    const retryAfter = Math.ceil(
-      (entry.timestamps[0] + opts.windowMs - now) / 1000
-    );
-    return NextResponse.json(
-      { error: "Too many requests. Please try again later." },
-      {
-        status: 429,
-        headers: { "Retry-After": String(retryAfter) },
-      }
-    );
-  }
-
-  entry.timestamps.push(now);
-  store.set(key, entry);
-  return null;
 }

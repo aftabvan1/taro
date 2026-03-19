@@ -37,7 +37,7 @@ export async function GET(
       );
     }
 
-    const stats = await getInstanceStats(instance.containerName);
+    const stats = await getInstanceStats(instance.containerName, instance.agentFramework ?? undefined);
 
     return NextResponse.json({ data: stats });
   } catch (error) {

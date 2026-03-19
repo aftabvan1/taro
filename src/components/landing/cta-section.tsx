@@ -25,10 +25,11 @@ export const CTASection = () => {
         </div>
 
         <h2 className="mx-auto max-w-lg text-3xl font-bold tracking-tight sm:text-4xl">
-          Your AI agent could be working right now.
+          The framework wars are over.{" "}
+          <span className="text-gradient">Deploy the winner.</span>
         </h2>
         <p className="mx-auto mt-4 max-w-md text-muted">
-          Deploy in 30 seconds. Connect your channels. Watch it work.
+          OpenClaw or Hermes — deployed in 30 seconds, governed from one dashboard.
         </p>
         <div className="mt-10 flex justify-center">
           <Button size="lg" href="/auth/register">

@@ -66,7 +66,7 @@ export async function PATCH(
     try {
       const dispatchResult = await execSyncDaemon(owned.instance.mcPort, {
         method: "POST",
-        path: "/openclaw/dispatch",
+        path: `/${owned.instance.agentFramework || "openclaw"}/dispatch`,
         body: {
           taskId: updated.id,
           taskTitle: updated.title,
@@ -84,7 +84,7 @@ export async function PATCH(
           await db
             .update(mcTasks)
             .set({
-              openclawSessionId: sessionId,
+              agentSessionId: sessionId,
               dispatchedAt: new Date(),
             })
             .where(eq(mcTasks.id, id));
@@ -105,7 +105,7 @@ export async function PATCH(
     priority: updated.priority,
     assignee: updated.assignee,
     due_date: updated.dueDate?.toISOString() ?? null,
-    openclaw_session_id: updated.openclawSessionId ?? null,
+    agent_session_id: updated.agentSessionId ?? null,
     dispatched_at: updated.dispatchedAt?.toISOString() ?? null,
     dispatch_output: updated.dispatchOutput ?? null,
     created_at: updated.createdAt.toISOString(),

@@ -256,6 +256,7 @@ export default function DashboardOverview() {
 
   /* Create instance form state */
   const [newName, setNewName] = useState("");
+  const [selectedFramework, setSelectedFramework] = useState<"openclaw" | "hermes">("openclaw");
 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -366,7 +367,7 @@ export default function DashboardOverview() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ name: newName.trim() }),
+          body: JSON.stringify({ name: newName.trim(), agentFramework: selectedFramework }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -446,7 +447,7 @@ export default function DashboardOverview() {
                 SUBSCRIBE TO DEPLOY
               </h2>
               <p className="mt-1 font-mono text-xs text-zinc-500">
-                An active subscription is required to deploy your OpenClaw instance
+                An active subscription is required to deploy your agent instance
               </p>
             </div>
           </div>
@@ -501,13 +502,47 @@ export default function DashboardOverview() {
               INITIALIZE INSTANCE
             </h2>
             <p className="mt-1 font-mono text-xs text-zinc-600">
-              Deploy an OpenClaw agent to begin operations
+              Deploy your AI agent to begin operations
             </p>
           </div>
         </div>
 
         <Panel className="w-full max-w-md" label="new deployment">
           <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            {/* Framework selector */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedFramework("openclaw")}
+                className={cn(
+                  "rounded-lg border p-3 text-left transition-all",
+                  selectedFramework === "openclaw"
+                    ? "border-emerald-500/40 bg-emerald-500/[0.08] shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                    : "border-zinc-800 bg-black/30 hover:border-zinc-700"
+                )}
+              >
+                <p className="font-mono text-xs font-bold text-zinc-200">OpenClaw</p>
+                <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
+                  Always-on gateway · 20+ channels
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFramework("hermes")}
+                className={cn(
+                  "rounded-lg border p-3 text-left transition-all",
+                  selectedFramework === "hermes"
+                    ? "border-emerald-500/40 bg-emerald-500/[0.08] shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                    : "border-zinc-800 bg-black/30 hover:border-zinc-700"
+                )}
+              >
+                <p className="font-mono text-xs font-bold text-zinc-200">Hermes Agent</p>
+                <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
+                  Self-improving · persistent memory
+                </p>
+              </button>
+            </div>
+
             <label className="flex flex-col gap-1.5">
               <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
                 Instance Designation
@@ -600,9 +635,9 @@ export default function DashboardOverview() {
                     <span className="font-mono text-[10px] font-bold text-emerald-400">1</span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-mono text-xs font-bold text-zinc-300">Connect to OpenClaw</p>
+                    <p className="font-mono text-xs font-bold text-zinc-300">Connect to your agent</p>
                     <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
-                      If OpenClaw is unreachable above, click &quot;Push Sync&quot; to push the latest config.
+                      If your agent is unreachable above, click &quot;Push Sync&quot; to push the latest config.
                     </p>
                   </div>
                 </div>
@@ -624,7 +659,7 @@ export default function DashboardOverview() {
                   <div className="flex-1">
                     <p className="font-mono text-xs font-bold text-zinc-300">Create Your First Agent</p>
                     <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
-                      Agents are AI workers that execute tasks autonomously through OpenClaw.
+                      Agents are AI workers that execute tasks autonomously.
                     </p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-zinc-700 transition-transform group-hover:translate-x-0.5 group-hover:text-violet-400" />
@@ -667,7 +702,7 @@ export default function DashboardOverview() {
                   <div className="flex-1">
                     <p className="font-mono text-xs font-bold text-zinc-400">Dispatch a Task</p>
                     <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
-                      Assign an agent to a task, then hit Dispatch. The agent will execute it through OpenClaw.
+                      Assign an agent to a task, then hit Dispatch. The agent will execute it autonomously.
                     </p>
                   </div>
                   <Zap className="h-4 w-4 text-zinc-700" />

@@ -64,7 +64,7 @@ const guides: Guide[] = [
   {
     id: "telegram",
     title: "Telegram Bot",
-    description: "Connect your OpenClaw agent to Telegram so users can chat with it directly in any Telegram conversation.",
+    description: "Connect your agent to Telegram so users can chat with it directly in any Telegram conversation.",
     icon: <MessageCircle className="h-4 w-4" />,
     iconBg: "bg-sky-500/10",
     iconBorder: "border-sky-500/20",
@@ -85,7 +85,7 @@ const guides: Guide[] = [
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
@@ -94,23 +94,23 @@ const guides: Guide[] = [
       },
       {
         title: "Paste your Bot Token",
-        description: "When prompted, paste the API token you got from BotFather. OpenClaw will validate the connection.",
+        description: "When prompted, paste the API token you got from BotFather. The agent will validate the connection.",
       },
       {
         title: "Test it",
-        description: "Open Telegram, find your bot by its username, and send a message. Your OpenClaw agent should respond.",
+        description: "Open Telegram, find your bot by its username, and send a message. Your agent should respond.",
       },
     ],
     tips: [
       "You can add the bot to group chats — it will respond when mentioned by @username",
-      "To change or remove the Telegram integration, run openclaw configure again",
+      "To change or remove the Telegram integration, run the configure command again",
       "Bot responses respect your agent's configured personality and skills",
     ],
   },
   {
     id: "discord",
     title: "Discord Bot",
-    description: "Add your OpenClaw agent to a Discord server so it can respond in channels and DMs.",
+    description: "Add your AI agent to a Discord server so it can respond in channels and DMs.",
     icon: <Hash className="h-4 w-4" />,
     iconBg: "bg-indigo-500/10",
     iconBorder: "border-indigo-500/20",
@@ -142,7 +142,7 @@ const guides: Guide[] = [
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
@@ -163,7 +163,7 @@ const guides: Guide[] = [
   {
     id: "web",
     title: "Web Chat Widget",
-    description: "Embed your OpenClaw agent on any website with a chat widget your visitors can interact with.",
+    description: "Embed your AI agent on any website with a chat widget your visitors can interact with.",
     icon: <Globe className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10",
     iconBorder: "border-emerald-500/20",
@@ -174,16 +174,16 @@ const guides: Guide[] = [
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
         title: "Select Web",
-        description: "Select the Web channel from the list. OpenClaw will enable the web chat endpoint.",
+        description: "Select the Web channel from the list. The agent will enable the web chat endpoint.",
       },
       {
         title: "Get your embed snippet",
-        description: "After configuration, OpenClaw will output an embed script tag. Copy it.",
+        description: "After configuration, the agent will output an embed script tag. Copy it.",
         note: "You can also find the Web Chat URL in your Taro dashboard sidebar under \"Web Chat\".",
       },
       {
@@ -193,13 +193,13 @@ const guides: Guide[] = [
     ],
     tips: [
       "The Taro dashboard already has a direct \"Web Chat\" link in the sidebar — no embed needed for personal use",
-      "The widget is customizable via OpenClaw's configuration options",
+      "The widget is customizable via the agent's configuration options",
     ],
   },
   {
     id: "slack",
     title: "Slack",
-    description: "Connect your OpenClaw agent to a Slack workspace so it can respond in channels and DMs.",
+    description: "Connect your agent to a Slack workspace so it can respond in channels and DMs.",
     icon: <MessageCircle className="h-4 w-4" />,
     iconBg: "bg-purple-500/10",
     iconBorder: "border-purple-500/20",
@@ -216,11 +216,11 @@ const guides: Guide[] = [
       },
       {
         title: "Enable Event Subscriptions",
-        description: "In your Slack app settings, go to \"Event Subscriptions\" and enable them. You'll configure the URL after running openclaw configure.",
+        description: "In your Slack app settings, go to \"Event Subscriptions\" and enable them. You'll configure the URL after running the configure command.",
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
@@ -229,7 +229,7 @@ const guides: Guide[] = [
       },
       {
         title: "Set the Event URL",
-        description: "OpenClaw will output a webhook URL. Go back to your Slack app's Event Subscriptions and paste it as the Request URL.",
+        description: "The agent will output a webhook URL. Go back to your Slack app's Event Subscriptions and paste it as the Request URL.",
         substeps: [
           "Subscribe to bot events: app_mention, message.im",
           "Save changes",
@@ -248,7 +248,7 @@ const guides: Guide[] = [
   {
     id: "email",
     title: "Email",
-    description: "Let your OpenClaw agent send and receive emails, responding to incoming messages automatically.",
+    description: "Let your AI agent send and receive emails, responding to incoming messages automatically.",
     icon: <Mail className="h-4 w-4" />,
     iconBg: "bg-amber-500/10",
     iconBorder: "border-amber-500/20",
@@ -259,7 +259,7 @@ const guides: Guide[] = [
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
@@ -283,13 +283,13 @@ const guides: Guide[] = [
     ],
     tips: [
       "Use an app-specific password, not your main email password",
-      "You can configure auto-reply rules in OpenClaw's agent settings",
+      "You can configure auto-reply rules in the agent settings",
     ],
   },
   {
     id: "model",
     title: "Change AI Model",
-    description: "Switch the underlying LLM your OpenClaw agent uses — choose between OpenAI, Anthropic, local models, and more.",
+    description: "Switch the underlying LLM your AI agent uses — choose between OpenAI, Anthropic, local models, and more.",
     icon: <Cpu className="h-4 w-4" />,
     iconBg: "bg-rose-500/10",
     iconBorder: "border-rose-500/20",
@@ -300,7 +300,7 @@ const guides: Guide[] = [
       },
       {
         title: "Run the configure command",
-        description: "In your OpenClaw terminal, run:",
+        description: "In your terminal, run the configure command:",
         command: "openclaw configure",
       },
       {
@@ -339,7 +339,7 @@ const guides: Guide[] = [
       "Smaller models (GPT-4o-mini, Haiku) are faster and cheaper for simple tasks",
       "For complex reasoning, use GPT-4o, Claude Opus, or o3",
       "If you're using Ollama, make sure the model is pulled first with ollama pull <model-name>",
-      "Your API key is stored locally in your OpenClaw instance — Taro never sees it",
+      "Your API key is stored locally in your agent instance — Taro never sees it",
     ],
   },
 ];
@@ -527,7 +527,7 @@ export default function GuidesPage() {
           </span>
         </div>
         <p className="mt-2 text-sm text-zinc-500">
-          Connect your OpenClaw agent to messaging platforms using{" "}
+          Connect your agent to messaging platforms using{" "}
           <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-emerald-400">
             openclaw configure
           </code>

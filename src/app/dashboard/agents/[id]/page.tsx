@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/format";
 import { agentStatusConfig, taskStatusColors } from "@/lib/status-config";
 import { useDashboard } from "../../layout";
-import type { OpenClawTranscriptMessage } from "@/lib/mission-control/types";
+import type { AgentTranscriptMessage } from "@/lib/mission-control/types";
 
 interface AgentDetail {
   id: string;
@@ -34,7 +34,7 @@ interface AgentDetail {
   status: "active" | "pending" | "stopped";
   tasks_completed: number;
   last_active: string;
-  openclaw_session_id: string | null;
+  agent_session_id: string | null;
   created_at: string;
   assigned_tasks: {
     id: string;
@@ -43,7 +43,7 @@ interface AgentDetail {
     description: string;
     status: string;
     priority: string;
-    openclaw_session_id: string | null;
+    agent_session_id: string | null;
     dispatched_at: string | null;
     created_at: string;
   }[];
@@ -64,7 +64,7 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<OpenClawTranscriptMessage[]>([]);
+  const [transcript, setTranscript] = useState<AgentTranscriptMessage[]>([]);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [showTranscript, setShowTranscript] = useState(true);
 
@@ -95,11 +95,11 @@ export default function AgentDetailPage() {
   );
 
   const fetchTranscript = useCallback(async () => {
-    if (!token || !agent?.openclaw_session_id) return;
+    if (!token || !agent?.agent_session_id) return;
     setTranscriptLoading(true);
     try {
       const res = await fetch(
-        `/api/mission-control/openclaw/sessions/${agent.openclaw_session_id}`,
+        `/api/mission-control/agent/sessions/${agent.agent_session_id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.ok) {
@@ -111,7 +111,7 @@ export default function AgentDetailPage() {
     } finally {
       setTranscriptLoading(false);
     }
-  }, [token, agent?.openclaw_session_id]);
+  }, [token, agent?.agent_session_id]);
 
   useEffect(() => {
     fetchAgent();
@@ -120,20 +120,20 @@ export default function AgentDetailPage() {
   }, [fetchAgent]);
 
   useEffect(() => {
-    if (agent?.openclaw_session_id) {
+    if (agent?.agent_session_id) {
       fetchTranscript();
       const interval = setInterval(fetchTranscript, 8000);
       return () => clearInterval(interval);
     }
-  }, [agent?.openclaw_session_id, fetchTranscript]);
+  }, [agent?.agent_session_id, fetchTranscript]);
 
   const sendMessage = async () => {
     const msg = input.trim();
-    if (!msg || sending || !token || !agent?.openclaw_session_id) return;
+    if (!msg || sending || !token || !agent?.agent_session_id) return;
     setInput("");
     setSending(true);
     try {
-      await fetch("/api/mission-control/openclaw/chat", {
+      await fetch("/api/mission-control/agent/chat", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -141,7 +141,7 @@ export default function AgentDetailPage() {
         },
         body: JSON.stringify({
           message: msg,
-          sessionId: agent.openclaw_session_id,
+          sessionId: agent.agent_session_id,
         }),
       });
       // Refresh transcript after sending
@@ -245,12 +245,12 @@ export default function AgentDetailPage() {
       </div>
 
       {/* Session ID */}
-      {agent.openclaw_session_id && (
+      {agent.agent_session_id && (
         <div className="flex items-center gap-2 rounded-lg border border-violet-500/10 bg-violet-500/5 px-3 py-2">
           <Wifi className="h-3.5 w-3.5 text-violet-400" />
           <span className="font-mono text-[10px] text-violet-400">SESSION</span>
           <code className="font-mono text-[10px] text-zinc-400">
-            {agent.openclaw_session_id}
+            {agent.agent_session_id}
           </code>
         </div>
       )}
@@ -300,7 +300,7 @@ export default function AgentDetailPage() {
                       </div>
                     ) : transcript.length === 0 ? (
                       <p className="py-4 text-center font-mono text-[11px] text-zinc-600 italic">
-                        {agent.openclaw_session_id
+                        {agent.agent_session_id
                           ? "No messages yet in this session"
                           : "No OpenClaw session linked"}
                       </p>
@@ -336,7 +336,7 @@ export default function AgentDetailPage() {
           </div>
 
           {/* Scoped Command Prompt */}
-          {agent.openclaw_session_id && (
+          {agent.agent_session_id && (
             <div className="rounded-lg border border-violet-500/20 bg-[#0c0c0d]">
               <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2">
                 <Terminal className="h-3.5 w-3.5 text-violet-400" />

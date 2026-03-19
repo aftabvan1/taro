@@ -13,7 +13,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, { windowMs: 15 * 60 * 1000, max: 10 });
+  const limited = await rateLimit(req, { windowMs: 15 * 60 * 1000, max: 10 });
   if (limited) return limited;
 
   try {

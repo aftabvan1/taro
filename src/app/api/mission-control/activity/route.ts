@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   const limitParam = req.nextUrl.searchParams.get("limit");
-  const limit = Math.min(parseInt(limitParam ?? "50", 10) || 50, 200);
+  const limit = Math.max(1, Math.min(parseInt(limitParam ?? "50", 10) || 50, 200));
 
   const entries = await db
     .select()

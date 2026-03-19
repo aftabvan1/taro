@@ -11,17 +11,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No instance found" }, { status: 404 });
   }
 
+  const prefix = instance.agentFramework || "openclaw";
+
   const result = await execSyncDaemon(instance.mcPort, {
     method: "GET",
-    path: "/openclaw/status",
+    path: `/${prefix}/sessions`,
   });
-
-  if (!result.ok) {
-    return NextResponse.json(
-      { error: "OpenClaw sync daemon unreachable", details: result.data },
-      { status: result.status }
-    );
-  }
 
   return NextResponse.json(result.data, { status: result.status });
 }

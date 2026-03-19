@@ -32,7 +32,7 @@ export function ConnectionStatus({
       if (fetchingRef.current) return;
       fetchingRef.current = true;
       try {
-        const res = await fetch("/api/mission-control/openclaw/status", {
+        const res = await fetch("/api/mission-control/agent/status", {
           headers: { Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(8000),
         });

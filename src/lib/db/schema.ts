@@ -38,6 +38,8 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "error",
 ]);
 
+export const agentFrameworkEnum = pgEnum("agent_framework", ["openclaw", "hermes"]);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -85,9 +87,10 @@ export const instances = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     status: instanceStatusEnum("status").notNull().default("provisioning"),
+    agentFramework: agentFrameworkEnum("agent_framework").notNull().default("openclaw"),
     region: text("region").notNull().default("eu-central"),
     serverIp: text("server_ip"),
-    openclawPort: integer("openclaw_port"),
+    agentPort: integer("agent_port"),
     ttydPort: integer("ttyd_port"),
     mcPort: integer("mc_port"),
     hetznerServerId: text("hetzner_server_id"),
@@ -106,7 +109,13 @@ export const instances = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("instances_user_id_idx").on(t.userId)]
+  (t) => [
+    index("instances_user_id_idx").on(t.userId),
+    uniqueIndex("instances_name_idx").on(t.name),
+    uniqueIndex("instances_agent_port_idx").on(t.agentPort),
+    uniqueIndex("instances_ttyd_port_idx").on(t.ttydPort),
+    uniqueIndex("instances_mc_port_idx").on(t.mcPort),
+  ]
 );
 
 // ─── Backups ──────────────────────────────────────────────────────────────────
@@ -171,7 +180,7 @@ export const mcAgents = pgTable(
       .defaultNow(),
     cpuUsage: integer("cpu_usage").notNull().default(0),
     memoryUsage: integer("memory_usage").notNull().default(0),
-    openclawSessionId: text("openclaw_session_id"),
+    agentSessionId: text("agent_session_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -252,7 +261,7 @@ export const mcTasks = pgTable(
       .default("medium"),
     assignee: text("assignee"),
     dueDate: timestamp("due_date", { withTimezone: true }),
-    openclawSessionId: text("openclaw_session_id"),
+    agentSessionId: text("agent_session_id"),
     dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
     dispatchOutput: text("dispatch_output"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -302,7 +311,7 @@ export const mcApprovals = pgTable(
     status: mcApprovalStatusEnum("mc_approval_status")
       .notNull()
       .default("pending"),
-    openclawApprovalId: text("openclaw_approval_id"),
+    agentApprovalId: text("agent_approval_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -383,3 +392,15 @@ export const mcTaskCustomFieldValues = pgTable("mc_task_custom_field_values", {
     .notNull()
     .defaultNow(),
 });
+
+// ─── Rate Limiting ──────────────────────────────────────────────────────────
+
+export const rateLimitEntries = pgTable(
+  "rate_limit_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(),
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rate_limit_entries_key_ts_idx").on(t.key, t.timestamp)]
+);

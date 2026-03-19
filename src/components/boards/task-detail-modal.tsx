@@ -68,8 +68,8 @@ export function TaskDetailModal({
   };
 
   const copySessionId = () => {
-    if (task.openclaw_session_id) {
-      navigator.clipboard.writeText(task.openclaw_session_id);
+    if (task.agent_session_id) {
+      navigator.clipboard.writeText(task.agent_session_id);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -217,13 +217,13 @@ export function TaskDetailModal({
                   <Clock className="h-3 w-3" />
                   {relativeTime(task.dispatched_at)}
                 </div>
-                {task.openclaw_session_id && (
+                {task.agent_session_id && (
                   <button
                     onClick={copySessionId}
                     className="flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-zinc-600 transition-colors hover:text-zinc-400"
                   >
                     <Copy className="h-2.5 w-2.5" />
-                    {copied ? "Copied!" : `Session: ${task.openclaw_session_id.slice(0, 16)}...`}
+                    {copied ? "Copied!" : `Session: ${task.agent_session_id.slice(0, 16)}...`}
                   </button>
                 )}
               </div>

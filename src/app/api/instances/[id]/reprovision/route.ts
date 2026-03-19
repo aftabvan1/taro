@@ -5,11 +5,15 @@ import { instances } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { reprovisionInstance } from "@/lib/provisioner";
 import { eq, and } from "drizzle-orm";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = await rateLimit(req, { windowMs: 60 * 1000, max: 3 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -29,7 +33,7 @@ export async function POST(
       );
     }
 
-    if (!instance.serverIp || !instance.containerName || !instance.openclawPort || !instance.ttydPort) {
+    if (!instance.serverIp || !instance.containerName || !instance.agentPort || !instance.ttydPort) {
       return NextResponse.json(
         { error: "Instance is not fully provisioned" },
         { status: 400 }
@@ -41,8 +45,9 @@ export async function POST(
       instance.name,
       instance.containerName,
       instance.serverIp,
-      instance.openclawPort,
-      instance.ttydPort
+      instance.agentPort,
+      instance.ttydPort,
+      instance.agentFramework ?? undefined
     );
 
     return NextResponse.json({

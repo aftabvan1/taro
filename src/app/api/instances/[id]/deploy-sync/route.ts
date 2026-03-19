@@ -6,11 +6,16 @@ import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
 import { NodeSSH } from "node-ssh";
 import { deploySyncDaemon } from "@/lib/provisioner";
+import { env } from "@/lib/env";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = await rateLimit(req, { windowMs: 60 * 1000, max: 3 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -36,12 +41,12 @@ export async function POST(
   const ssh = new NodeSSH();
   try {
     await ssh.connect({
-      host: process.env.HETZNER_SERVER_IP!,
+      host: env.HETZNER_SERVER_IP,
       username: "root",
-      privateKey: process.env.HETZNER_SSH_PRIVATE_KEY!,
+      privateKey: env.HETZNER_SSH_PRIVATE_KEY,
     });
 
-    await deploySyncDaemon(ssh, instance.name, instance.id, instance.mcPort);
+    await deploySyncDaemon(ssh, instance.name, instance.id, instance.mcPort, instance.agentFramework);
 
     // Verify the service started
     const check = await ssh.execCommand(

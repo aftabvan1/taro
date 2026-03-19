@@ -29,7 +29,7 @@ import { relativeTime } from "@/lib/format";
 import { dashboardContainer, dashboardItem } from "@/lib/animation-variants";
 import { agentStatusConfig } from "@/lib/status-config";
 import { useDashboard } from "../layout";
-import type { MCAgent, OpenClawSession } from "@/lib/mission-control/types";
+import type { MCAgent, AgentSession } from "@/lib/mission-control/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,7 +75,7 @@ function CommandPrompt({ token }: { token: string }) {
     setSending(true);
 
     try {
-      const res = await fetch("/api/mission-control/openclaw/chat", {
+      const res = await fetch("/api/mission-control/agent/chat", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -232,7 +232,7 @@ function CommandPrompt({ token }: { token: string }) {
 // ---------------------------------------------------------------------------
 
 function LiveSessions({ token }: { token: string }) {
-  const [sessions, setSessions] = useState<OpenClawSession[]>([]);
+  const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [loading, setLoading] = useState(true);
   const fetchingRef = useRef(false);
 
@@ -243,7 +243,7 @@ function LiveSessions({ token }: { token: string }) {
       if (fetchingRef.current) return;
       fetchingRef.current = true;
       try {
-        const res = await fetch("/api/mission-control/openclaw/sessions", {
+        const res = await fetch("/api/mission-control/agent/sessions", {
           headers: { Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(8000),
         });
@@ -781,11 +781,11 @@ export default function AgentsPage() {
                     </div>
 
                     {/* Session ID if available */}
-                    {agent.openclaw_session_id ? (
+                    {agent.agent_session_id ? (
                       <div className="mt-2 flex items-center gap-1.5">
                         <Wifi className="h-3 w-3 text-violet-500/50" />
                         <span className="font-mono text-[9px] text-zinc-700 truncate">
-                          Session: {agent.openclaw_session_id.slice(0, 16)}...
+                          Session: {agent.agent_session_id.slice(0, 16)}...
                         </span>
                       </div>
                     ) : agent.status === "pending" ? (

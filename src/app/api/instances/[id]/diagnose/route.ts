@@ -5,6 +5,7 @@ import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { eq, and } from "drizzle-orm";
 import { NodeSSH } from "node-ssh";
 import { validateShellName, validatePort } from "@/lib/shell-sanitize";
+import { env } from "@/lib/env";
 
 interface DiagnosticResult {
   label: string;
@@ -36,9 +37,9 @@ export async function GET(
 
   try {
     await ssh.connect({
-      host: process.env.HETZNER_SERVER_IP!,
+      host: env.HETZNER_SERVER_IP,
       username: "root",
-      privateKey: process.env.HETZNER_SSH_PRIVATE_KEY!,
+      privateKey: env.HETZNER_SSH_PRIVATE_KEY,
     });
     results.push({ label: "SSH connection", ok: true, detail: "Connected" });
   } catch (err) {
@@ -49,22 +50,28 @@ export async function GET(
   // Validate DB values before shell interpolation
   validateShellName(instance.name, "instance name");
 
+  // Framework-aware config
+  const framework = instance.agentFramework || "openclaw";
+  const containerSuffix = framework === "hermes" ? "hermes" : "openclaw";
+  const internalPort = framework === "hermes" ? 8642 : 18789;
+  const frameworkLabel = framework === "hermes" ? "Hermes" : "OpenClaw";
+
   // Docker container
   const docker = await ssh.execCommand(
-    `docker ps --filter "name=taro-${instance.name}-openclaw" --format "{{.Status}}" 2>&1`
+    `docker ps --filter "name=taro-${instance.name}-${containerSuffix}" --format "{{.Status}}" 2>&1`
   );
   const containerUp = docker.stdout.includes("Up");
   results.push({
-    label: "OpenClaw container",
+    label: `${frameworkLabel} container`,
     ok: containerUp,
     detail: docker.stdout.trim() || "Not found",
   });
 
-  // WebSocket Gateway
-  const wsCheck = await ssh.execCommand("ss -tlnp | grep 18789");
-  const wsListening = wsCheck.stdout.includes("18789");
+  // Agent API port
+  const wsCheck = await ssh.execCommand(`ss -tlnp | grep ${internalPort}`);
+  const wsListening = wsCheck.stdout.includes(String(internalPort));
   results.push({
-    label: "WebSocket Gateway (18789)",
+    label: `${frameworkLabel} API (${internalPort})`,
     ok: wsListening,
     detail: wsListening ? "Listening" : "Not listening",
   });

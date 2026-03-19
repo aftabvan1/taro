@@ -35,12 +35,12 @@ export const ProblemSolution = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            You want AI agents that work.{" "}
-            <span className="text-gradient">Not weekends lost to servers.</span>
+            You picked your framework.{" "}
+            <span className="text-gradient">Now who runs it?</span>
           </h2>
           <p className="mt-4 text-muted">
-            Other platforms hand you a server and wish you luck. Taro handles
-            everything so you can focus on what your agent actually does.
+            Whether you chose OpenClaw for its 20+ channels or Hermes for its
+            persistent memory — you still need infrastructure. We handle that part.
           </p>
         </motion.div>
 

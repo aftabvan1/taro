@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       last_active: a.lastActive.toISOString(),
       cpu_usage: a.cpuUsage,
       memory_usage: a.memoryUsage,
-      openclaw_session_id: a.openclawSessionId ?? undefined,
+      agent_session_id: a.agentSessionId ?? undefined,
     }))
   );
 }
@@ -59,13 +59,14 @@ export async function POST(req: NextRequest) {
     })
     .returning();
 
-  // If instance has mcPort, create the agent in OpenClaw
-  let openclawSessionId: string | undefined;
+  // If instance has mcPort, create the agent in the framework
+  let agentSessionId: string | undefined;
+  const prefix = instance.agentFramework || "openclaw";
   if (instance.mcPort) {
     try {
       const result = await execSyncDaemon(instance.mcPort, {
         method: "POST",
-        path: "/openclaw/agents/create",
+        path: `/${prefix}/agents/create`,
         body: {
           name: data.name,
           role: data.role ?? "",
@@ -74,13 +75,13 @@ export async function POST(req: NextRequest) {
       });
 
       if (result.ok) {
-        openclawSessionId =
+        agentSessionId =
           (result.data as Record<string, unknown>)?.sessionId as string;
-        if (openclawSessionId) {
+        if (agentSessionId) {
           await db
             .update(mcAgents)
             .set({
-              openclawSessionId,
+              agentSessionId,
               status: "active",
             })
             .where(eq(mcAgents.id, agent.id));
@@ -96,11 +97,11 @@ export async function POST(req: NextRequest) {
     name: agent.name,
     role: agent.role,
     description: agent.description,
-    status: openclawSessionId ? "active" : agent.status,
+    status: agentSessionId ? "active" : agent.status,
     tasks_completed: agent.tasksCompleted,
     last_active: agent.lastActive.toISOString(),
     cpu_usage: agent.cpuUsage,
     memory_usage: agent.memoryUsage,
-    openclaw_session_id: openclawSessionId ?? agent.openclawSessionId ?? undefined,
+    agent_session_id: agentSessionId ?? agent.agentSessionId ?? undefined,
   });
 }

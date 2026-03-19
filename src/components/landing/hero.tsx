@@ -25,7 +25,7 @@ export const Hero = () => {
         <motion.div variants={itemVariants}>
           <span className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-4 py-1.5 font-mono text-xs text-brand">
             <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
-            Now in public beta
+            Now supporting Hermes Agent
           </span>
         </motion.div>
 
@@ -34,8 +34,8 @@ export const Hero = () => {
           variants={itemVariants}
           className="mt-8 max-w-4xl text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl"
         >
-          Deploy. Control.{" "}
-          <span className="text-gradient">Everything.</span>
+          Both frameworks.{" "}
+          <span className="text-gradient">One cockpit.</span>
         </motion.h1>
 
         {/* Subheadline */}
@@ -43,9 +43,9 @@ export const Hero = () => {
           variants={itemVariants}
           className="mt-6 max-w-2xl text-lg leading-relaxed text-muted md:text-xl"
         >
-          The first managed OpenClaw platform with a built-in mission control
-          dashboard. Deploy agents in 30 seconds — then actually govern them
-          with task boards, audit logs, and real-time oversight.
+          The only platform that runs both OpenClaw and Hermes Agent.
+          Deploy in 30 seconds, govern with task boards and real-time
+          oversight — no matter which framework you choose.
         </motion.p>
 
         {/* CTAs */}

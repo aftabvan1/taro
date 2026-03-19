@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { stopInstance } from "@/lib/provisioner";
+import { logActivity } from "@/lib/activity";
 import type Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -71,16 +73,21 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        const plan = "pro" as const;
-        await db
-          .update(users)
-          .set({
-            plan,
-            stripeSubscriptionId: subscription.id,
-          })
-          .where(eq(users.stripeCustomerId, customerId));
-
-        logger.info(`Subscription ${subscription.id} updated to ${plan}`);
+        if (subscription.status === "active" || subscription.status === "trialing") {
+          await db
+            .update(users)
+            .set({
+              plan: "pro",
+              stripeSubscriptionId: subscription.id,
+            })
+            .where(eq(users.stripeCustomerId, customerId));
+          logger.info(`Subscription ${subscription.id} active, plan set to pro`);
+        } else if (subscription.status === "past_due" || subscription.status === "unpaid") {
+          logger.error(`Subscription ${subscription.id} is ${subscription.status} for customer ${customerId}`);
+          // Keep plan as-is but log — Stripe will fire invoice.payment_failed for action
+        }
+        // Note: "canceled" and "incomplete_expired" are handled by the
+        // customer.subscription.deleted event below — no action needed here.
         break;
       }
 
@@ -88,17 +95,77 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        await db
+        // Downgrade plan
+        const [downgraded] = await db
           .update(users)
           .set({
             plan: "hobby",
             stripeSubscriptionId: null,
           })
-          .where(eq(users.stripeCustomerId, customerId));
+          .where(eq(users.stripeCustomerId, customerId))
+          .returning({ id: users.id });
+
+        if (downgraded) {
+          // Stop all running instances so they don't get free hosting
+          const userInstances = await db
+            .select({ id: instances.id, containerName: instances.containerName, agentFramework: instances.agentFramework, status: instances.status })
+            .from(instances)
+            .where(eq(instances.userId, downgraded.id));
+
+          for (const inst of userInstances) {
+            if (inst.status === "running" && inst.containerName) {
+              try {
+                await stopInstance(inst.containerName, inst.agentFramework);
+                await db
+                  .update(instances)
+                  .set({ status: "stopped" })
+                  .where(eq(instances.id, inst.id));
+              } catch (err) {
+                logger.error(`Failed to stop instance ${inst.id} on subscription cancel:`, err);
+                await db
+                  .update(instances)
+                  .set({ status: "error" })
+                  .where(eq(instances.id, inst.id));
+              }
+            }
+          }
+        }
 
         logger.info(`Subscription ${subscription.id} canceled, user downgraded to hobby`);
         break;
       }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const failedCustomerId = invoice.customer as string;
+        logger.error(`Payment failed for invoice ${invoice.id}, customer ${failedCustomerId}`);
+
+        // Find user and log activity on their instances
+        const [failedUser] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.stripeCustomerId, failedCustomerId))
+          .limit(1);
+
+        if (failedUser) {
+          const failedInstances = await db
+            .select({ id: instances.id })
+            .from(instances)
+            .where(eq(instances.userId, failedUser.id));
+
+          for (const inst of failedInstances) {
+            await logActivity(
+              inst.id,
+              "error",
+              "Payment failed — please update your payment method to avoid service interruption"
+            );
+          }
+        }
+        break;
+      }
+
+      default:
+        logger.info(`Unhandled Stripe event: ${event.type}`);
     }
   } catch (error) {
     logger.error("Stripe webhook handler error:", error);

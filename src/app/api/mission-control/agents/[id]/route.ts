@@ -47,7 +47,7 @@ export async function GET(
       description: mcTasks.description,
       status: mcTasks.status,
       priority: mcTasks.priority,
-      openclawSessionId: mcTasks.openclawSessionId,
+      agentSessionId: mcTasks.agentSessionId,
       dispatchedAt: mcTasks.dispatchedAt,
       createdAt: mcTasks.createdAt,
     })
@@ -83,7 +83,7 @@ export async function GET(
     last_active: agent.lastActive.toISOString(),
     cpu_usage: agent.cpuUsage,
     memory_usage: agent.memoryUsage,
-    openclaw_session_id: agent.openclawSessionId ?? null,
+    agent_session_id: agent.agentSessionId ?? null,
     created_at: agent.createdAt.toISOString(),
     assigned_tasks: assignedTasks.map((t) => ({
       id: t.id,
@@ -92,7 +92,7 @@ export async function GET(
       description: t.description,
       status: t.status,
       priority: t.priority,
-      openclaw_session_id: t.openclawSessionId ?? null,
+      agent_session_id: t.agentSessionId ?? null,
       dispatched_at: t.dispatchedAt?.toISOString() ?? null,
       created_at: t.createdAt.toISOString(),
     })),
@@ -146,7 +146,7 @@ export async function PATCH(
     status: updated.status,
     tasks_completed: updated.tasksCompleted,
     last_active: updated.lastActive.toISOString(),
-    openclaw_session_id: updated.openclawSessionId ?? null,
+    agent_session_id: updated.agentSessionId ?? null,
   });
 }
 

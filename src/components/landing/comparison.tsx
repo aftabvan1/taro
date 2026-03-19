@@ -9,9 +9,9 @@ const STEPS = [
   {
     number: "01",
     icon: Rocket,
-    title: "Your agent goes live",
+    title: "Pick your framework",
     description:
-      "Pick a name, hit deploy. In 30 seconds, your AI agent is running, ready to connect to your channels and start working.",
+      "OpenClaw for multi-channel messaging. Hermes for self-improving memory. Choose the one that fits — we deploy either in 30 seconds.",
   },
   {
     number: "02",
@@ -25,7 +25,7 @@ const STEPS = [
     icon: LayoutDashboard,
     title: "You see everything",
     description:
-      "Every task, every message, every decision your agent makes — visible in one dashboard. Know exactly what's happening without touching a terminal.",
+      "Every task, every conversation, every skill document your agent creates — visible in one dashboard. Same Mission Control, regardless of framework.",
   },
 ] as const;
 
@@ -40,8 +40,8 @@ export const Comparison = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            From zero to a working AI agent.{" "}
-            <span className="text-gradient">Three steps.</span>
+            From framework debate to working agent.{" "}
+            <span className="text-gradient">30 seconds.</span>
           </h2>
           <p className="mt-4 text-muted">
             No infrastructure knowledge required. No config files. No waiting.

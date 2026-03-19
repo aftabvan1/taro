@@ -105,7 +105,7 @@ export const Pricing = () => {
               <Button
                 variant={plan.highlighted ? "primary" : "secondary"}
                 className={cn("mt-6 w-full", plan.comingSoon && "pointer-events-none opacity-50")}
-                href={plan.comingSoon ? undefined : "/auth/register"}
+                href={plan.comingSoon ? undefined : plan.cta === "Contact Us" ? "mailto:team@taroagent.com?subject=Teams%20Plan%20Inquiry" : "/auth/register"}
               >
                 {plan.cta}
               </Button>

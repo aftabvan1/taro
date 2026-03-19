@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { createCheckoutSession, createPortalSession } from "@/lib/stripe";
 import { eq } from "drizzle-orm";
+
+const billingActionSchema = z.object({
+  action: z.enum(["checkout", "portal"]),
+});
 
 // GET /api/billing — get current subscription status
 export async function GET(req: NextRequest) {
@@ -45,7 +50,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { action } = body;
+    const parsed = billingActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid action", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { action } = parsed.data;
 
     const [user] = await db
       .select({

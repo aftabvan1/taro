@@ -15,7 +15,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, { windowMs: 15 * 60 * 1000, max: 3 });
+  const limited = await rateLimit(req, { windowMs: 15 * 60 * 1000, max: 3 });
   if (limited) return limited;
 
   const auth = authenticate(req);
@@ -66,14 +66,14 @@ export async function POST(req: NextRequest) {
 
     // Clean up any running instances on the server
     const userInstances = await db
-      .select({ containerName: instances.containerName })
+      .select({ id: instances.id, containerName: instances.containerName })
       .from(instances)
       .where(eq(instances.userId, auth.userId));
 
     for (const inst of userInstances) {
       if (inst.containerName) {
         try {
-          await deleteInstance(inst.containerName);
+          await deleteInstance(inst.containerName, inst.id);
         } catch (err) {
           logger.error("Instance cleanup during account deletion:", err);
         }

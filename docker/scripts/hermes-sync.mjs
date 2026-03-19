@@ -1,32 +1,30 @@
 #!/usr/bin/env node
 
 /**
- * OpenClaw Sync Daemon
+ * Hermes Sync Daemon
  *
- * Bridges OpenClaw's Gateway to Taro's Neon PostgreSQL database.
- * Uses the OpenClaw CLI (`docker exec ... openclaw gateway call`) for gateway
- * operations, which handles device pairing automatically.
+ * Bridges Hermes Agent's WebAPI to Taro's Neon PostgreSQL database.
+ * Unlike the OpenClaw sync daemon which shells out via `docker exec`,
+ * this one makes direct HTTP calls to Hermes Agent's WebAPI on port 8642.
  *
  * Exposes an HTTP server that the Taro API routes proxy into via SSH.
  *
  * Environment variables:
  *   DATABASE_URL       — Neon PostgreSQL connection string
  *   INSTANCE_ID        — Taro instance UUID
- *   CONTAINER_NAME     — Docker container name (default: taro-joe-openclaw)
+ *   CONTAINER_NAME     — Docker container name (default: taro-joe-hermes)
  *   SYNC_HTTP_PORT     — HTTP port for the sync daemon's API
  */
 
 import { neon } from "@neondatabase/serverless";
 import { createServer } from "node:http";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const INSTANCE_ID = process.env.INSTANCE_ID;
-const CONTAINER_NAME = process.env.CONTAINER_NAME || "taro-joe-openclaw";
+const CONTAINER_NAME = process.env.CONTAINER_NAME || "taro-joe-hermes";
 const SYNC_HTTP_PORT = parseInt(process.env.SYNC_HTTP_PORT || "0", 10);
+
+const HERMES_BASE_URL = "http://localhost:8642";
 
 if (!DATABASE_URL || !INSTANCE_ID || !SYNC_HTTP_PORT) {
   console.error("Missing required env vars: DATABASE_URL, INSTANCE_ID, SYNC_HTTP_PORT");
@@ -38,8 +36,8 @@ const sql = neon(DATABASE_URL);
 // ─── Provider config sync ────────────────────────────────────────────────────
 
 /**
- * Read the user's chosen LLM provider/model from Taro DB and ensure the
- * OpenClaw container's config matches. This way dispatched agent runs use
+ * Read the user's chosen LLM provider/model from Taro DB and push it
+ * to Hermes Agent's /config endpoint so dispatched agent runs use
  * whatever provider the user configured in Taro settings.
  */
 let lastSyncedModel = null;
@@ -57,129 +55,174 @@ async function syncProviderConfig() {
     // Skip if we already synced this exact config
     if (lastSyncedModel === model) return;
 
-    // Read current openclaw.json from container
-    let currentConfig = {};
-    try {
-      const { stdout } = await execFileAsync("docker", [
-        "exec", CONTAINER_NAME,
-        "cat", "/home/node/.openclaw/openclaw.json",
-      ], { timeout: 5000 });
-      currentConfig = JSON.parse(stdout.trim());
-    } catch {
-      // File doesn't exist or can't parse — will write fresh
+    // Push config to Hermes WebAPI
+    const resp = await fetch(`${HERMES_BASE_URL}/config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider,
+        model,
+      }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Hermes /config returned ${resp.status}: ${text}`);
     }
-
-    // Check if the model is already set correctly
-    const currentModel = currentConfig?.agents?.defaults?.model?.primary;
-    if (currentModel === model) {
-      lastSyncedModel = model;
-      return;
-    }
-
-    // Update the config
-    if (!currentConfig.agents) currentConfig.agents = {};
-    if (!currentConfig.agents.defaults) currentConfig.agents.defaults = {};
-    currentConfig.agents.defaults.model = { primary: model };
-    if (!currentConfig.agents.defaults.models) currentConfig.agents.defaults.models = {};
-    currentConfig.agents.defaults.models[model] = {};
-
-    // Write back using docker cp to avoid shell injection
-    const { writeFileSync, unlinkSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join } = await import("node:path");
-    const tmpFile = join(tmpdir(), `openclaw-config-${Date.now()}.json`);
-    writeFileSync(tmpFile, JSON.stringify(currentConfig, null, 2));
-    await execFileAsync("docker", [
-      "cp", tmpFile, `${CONTAINER_NAME}:/home/node/.openclaw/openclaw.json`,
-    ], { timeout: 5000 });
-    try { unlinkSync(tmpFile); } catch { /* ignore */ }
 
     lastSyncedModel = model;
-    console.log(`[syncProviderConfig] Updated OpenClaw model to ${model}`);
+    console.log(`[syncProviderConfig] Updated Hermes model to ${model}`);
   } catch (err) {
     console.error("[syncProviderConfig] Error:", err.message);
   }
 }
 
-// ─── OpenClaw CLI bridge ────────────────────────────────────────────────────
+// ─── Hermes WebAPI bridge ────────────────────────────────────────────────────
 
-async function gatewayCallOnce(method, params = {}, timeoutMs = 30000) {
-  const args = [
-    "exec", CONTAINER_NAME,
-    "openclaw", "gateway", "call", method,
-    "--json",
-    "--timeout", String(timeoutMs),
-    "--params", JSON.stringify(params),
-  ];
+/**
+ * Make an HTTP request to Hermes Agent's WebAPI.
+ * Retries once on failure (Hermes sometimes drops first connection).
+ */
+async function hermesRequest(method, path, body = null, timeoutMs = 30000) {
+  async function attempt() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const { stdout, stderr } = await execFileAsync("docker", args, {
-    timeout: timeoutMs + 5000,
-    maxBuffer: 1024 * 1024,
-  });
+    try {
+      const options = {
+        method,
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+      };
 
-  if (stderr && !stdout) {
-    throw new Error(stderr.trim());
+      if (body !== null) {
+        options.body = JSON.stringify(body);
+      }
+
+      const resp = await fetch(`${HERMES_BASE_URL}${path}`, options);
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Hermes ${method} ${path} returned ${resp.status}: ${text}`);
+      }
+
+      const text = await resp.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { raw: text };
+      }
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
+  // Retry once on failure
   try {
-    return JSON.parse(stdout.trim());
-  } catch {
-    return { raw: stdout.trim() };
-  }
-}
-
-async function gatewayCall(method, params = {}, timeoutMs = 30000) {
-  // Retry once on failure (gateway sometimes drops first connection)
-  try {
-    return await gatewayCallOnce(method, params, timeoutMs);
+    return await attempt();
   } catch (firstErr) {
-    console.log(`[gatewayCall] ${method} failed, retrying: ${firstErr.message.slice(0, 100)}`);
+    console.log(`[hermesRequest] ${method} ${path} failed, retrying: ${firstErr.message.slice(0, 100)}`);
     try {
       await new Promise((r) => setTimeout(r, 500));
-      return await gatewayCallOnce(method, params, timeoutMs);
+      return await attempt();
     } catch (retryErr) {
-      const msg = retryErr.stderr?.trim() || retryErr.message || "CLI call failed";
-      throw new Error(`gateway call ${method} failed: ${msg}`);
+      throw new Error(`Hermes ${method} ${path} failed: ${retryErr.message}`);
     }
   }
 }
 
 /**
- * Run a full agent turn using `openclaw agent` CLI.
- * Unlike chat.send, this actually executes the task and waits for completion.
- * Always uses agent "main" since that's the only OpenClaw agent configured.
- * Uses docker exec with direct array args (no shell) to prevent injection.
+ * Send a chat message to Hermes via /chat (POST, SSE streaming).
+ * Buffers the entire SSE stream into a complete response.
  */
-async function agentRun(message, agentId = "main", timeoutSec = 120) {
-  // Pass message directly as an arg — no shell, no quoting issues
-  const args = [
-    "exec", CONTAINER_NAME,
-    "openclaw", "agent",
-    "--agent", "main",
-    "--message", message,
-    "--json",
-    "--timeout", String(timeoutSec),
-  ];
-
-  const { stdout, stderr } = await execFileAsync("docker", args, {
-    timeout: (timeoutSec + 10) * 1000,
-    maxBuffer: 2 * 1024 * 1024,
-  });
-
-  if (stderr && !stdout) {
-    throw new Error(stderr.trim());
-  }
+async function hermesChat(message, sessionId = null, timeoutMs = 120000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return JSON.parse(stdout.trim());
-  } catch {
-    return { raw: stdout.trim() };
+    const body = { message };
+    if (sessionId) body.session_id = sessionId;
+
+    const resp = await fetch(`${HERMES_BASE_URL}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Hermes /chat returned ${resp.status}: ${text}`);
+    }
+
+    // Check if response is SSE streaming
+    const contentType = resp.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      // Buffer SSE stream into complete response
+      const text = await resp.text();
+      const lines = text.split("\n");
+      const chunks = [];
+      let resultSessionId = sessionId;
+      let metadata = {};
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) chunks.push(parsed.content);
+            if (parsed.text) chunks.push(parsed.text);
+            if (parsed.session_id) resultSessionId = parsed.session_id;
+            if (parsed.metadata) metadata = { ...metadata, ...parsed.metadata };
+            // Capture final chunk data
+            if (parsed.done && parsed.response) {
+              return {
+                response: parsed.response,
+                session_id: parsed.session_id || resultSessionId,
+                metadata,
+              };
+            }
+          } catch {
+            // Non-JSON data line, accumulate as text
+            if (data && data !== "[DONE]") chunks.push(data);
+          }
+        }
+      }
+
+      return {
+        response: chunks.join(""),
+        session_id: resultSessionId,
+        metadata,
+      };
+    }
+
+    // Non-streaming JSON response
+    const json = await resp.json();
+    return json;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-async function gatewayHealth() {
+/**
+ * Submit a job to Hermes via /jobs (POST).
+ * Jobs run asynchronously and can be polled for status.
+ */
+async function hermesJob(message, sessionId = null, timeoutMs = 10000) {
+  const body = { message };
+  if (sessionId) body.session_id = sessionId;
+
+  return await hermesRequest("POST", "/jobs", body, timeoutMs);
+}
+
+async function hermesHealth() {
   try {
-    return await gatewayCall("health");
+    return await hermesRequest("GET", "/health", null, 5000);
   } catch {
     return null;
   }
@@ -397,10 +440,10 @@ function startHttpServer() {
     // ── Health check ──
     if (req.method === "GET" && path === "/health") {
       try {
-        const health = await gatewayCall("health");
+        const health = await hermesHealth();
         return jsonResponse(res, 200, {
           status: "ok",
-          connected: !!health?.ok,
+          connected: !!health,
         });
       } catch {
         return jsonResponse(res, 200, {
@@ -410,10 +453,10 @@ function startHttpServer() {
       }
     }
 
-    // ── OpenClaw status ──
-    if (req.method === "GET" && path === "/openclaw/status") {
+    // ── Hermes status ──
+    if (req.method === "GET" && path === "/hermes/status") {
       try {
-        const result = await gatewayCall("health");
+        const result = await hermesRequest("GET", "/health");
         return jsonResponse(res, 200, result);
       } catch (err) {
         return jsonResponse(res, 503, { error: err.message });
@@ -421,21 +464,21 @@ function startHttpServer() {
     }
 
     // ── List sessions ──
-    if (req.method === "GET" && path === "/openclaw/sessions") {
+    if (req.method === "GET" && path === "/hermes/sessions") {
       try {
-        const result = await gatewayCall("sessions.list");
+        const result = await hermesRequest("GET", "/sessions");
         return jsonResponse(res, 200, result);
       } catch (err) {
         return jsonResponse(res, 503, { error: err.message });
       }
     }
 
-    // ── Get session transcript ──
-    const sessionMatch = path.match(/^\/openclaw\/sessions\/([a-zA-Z0-9_:.\-]+)$/);
+    // ── Get session detail ──
+    const sessionMatch = path.match(/^\/hermes\/sessions\/([a-zA-Z0-9_:.\-]+)$/);
     if (req.method === "GET" && sessionMatch) {
-      const sessionKey = decodeURIComponent(sessionMatch[1]);
+      const sessionId = decodeURIComponent(sessionMatch[1]);
       try {
-        const result = await gatewayCall("sessions.preview", { sessionKey });
+        const result = await hermesRequest("GET", `/sessions/${encodeURIComponent(sessionId)}`);
         return jsonResponse(res, 200, result);
       } catch (err) {
         return jsonResponse(res, 503, { error: err.message });
@@ -443,7 +486,7 @@ function startHttpServer() {
     }
 
     // ── MC context summary ──
-    if (req.method === "GET" && path === "/openclaw/mc-context") {
+    if (req.method === "GET" && path === "/hermes/mc-context") {
       try {
         const summary = await getMCStateSummary();
         return jsonResponse(res, 200, { context: summary });
@@ -452,19 +495,16 @@ function startHttpServer() {
       }
     }
 
-    // ── Send chat message to agent ──
-    if (req.method === "POST" && path === "/openclaw/chat") {
+    // ── Send chat message to Hermes ──
+    if (req.method === "POST" && path === "/hermes/chat") {
       try {
         await syncProviderConfig();
-        const { message, sessionKey } = JSON.parse(await readBody(req));
+        const { message, sessionId } = JSON.parse(await readBody(req));
         if (!message) {
           return jsonResponse(res, 400, { error: "Missing message" });
         }
-        const result = await gatewayCall("chat.send", {
-          message,
-          sessionKey: sessionKey || "agent:main:main",
-          idempotencyKey: `chat-${Date.now()}`,
-        });
+
+        const result = await hermesChat(message, sessionId);
 
         await insertActivity(
           "command_executed",
@@ -478,8 +518,8 @@ function startHttpServer() {
       }
     }
 
-    // ── Dispatch task to agent ──
-    if (req.method === "POST" && path === "/openclaw/dispatch") {
+    // ── Dispatch task to Hermes agent ──
+    if (req.method === "POST" && path === "/hermes/dispatch") {
       try {
         const { taskId, taskTitle, taskDescription, agentName, boardName, priority, customFields } =
           JSON.parse(await readBody(req));
@@ -507,17 +547,14 @@ function startHttpServer() {
 
         const prompt = lines.join("\n");
 
-        // Ensure OpenClaw is using the user's chosen provider/model
+        // Ensure Hermes is using the user's chosen provider/model
         await syncProviderConfig();
 
-        // Use openclaw agent CLI to run a full agent turn
-        // Always use "main" — it's the only OpenClaw agent. MC agent names are for our tracking only.
-        const agentId = "main";
         const displayAgent = agentName || "main";
 
-        // Send initial response immediately — agent will run in background
-        // We don't await the full run here since it can take minutes
-        const runPromise = agentRun(prompt, agentId, 300);
+        // Submit as a job so it runs asynchronously
+        const jobResult = await hermesJob(prompt);
+        const jobId = jobResult?.job_id || jobResult?.id || `job-${Date.now()}`;
 
         // Return dispatch acknowledgment right away
         await insertActivity(
@@ -526,64 +563,17 @@ function startHttpServer() {
           displayAgent
         );
 
-        // Handle completion in background
-        runPromise
-          .then(async (result) => {
-            const output =
-              result?.result?.payloads?.[0]?.text ||
-              result?.raw ||
-              JSON.stringify(result).slice(0, 5000);
-            const sessionId = result?.result?.meta?.agentMeta?.sessionId || result?.runId || "";
+        // Poll job completion in background
+        pollJobCompletion(jobId, taskId, taskTitle, displayAgent);
 
-            // Update task to review with output
-            await updateTaskStatus(taskId, "review", output);
-
-            // Update the task's session ID and output in DB
-            try {
-              await sql`
-                UPDATE mc_tasks
-                SET agent_session_id = ${sessionId},
-                    dispatch_output = ${output}
-                WHERE id = ${taskId}
-              `;
-            } catch (e) {
-              console.error("[dispatch] Failed to save output:", e.message);
-            }
-
-            // Increment agent tasks_completed
-            try {
-              await sql`
-                UPDATE mc_agents
-                SET tasks_completed = tasks_completed + 1, last_active = NOW()
-                WHERE instance_id = ${INSTANCE_ID} AND name = ${displayAgent}
-              `;
-            } catch { /* ignore */ }
-
-            await insertActivity(
-              "task_completed",
-              `Task "${taskTitle}" completed by ${displayAgent}: ${(output || "").slice(0, 200)}`,
-              displayAgent
-            );
-            console.log(`[dispatch] Task "${taskTitle}" completed by ${displayAgent}`);
-          })
-          .catch(async (err) => {
-            console.error(`[dispatch] Task "${taskTitle}" failed:`, err.message);
-            await updateTaskStatus(taskId, "review", `Error: ${err.message}`);
-            await insertActivity(
-              "task_error",
-              `Task "${taskTitle}" failed: ${err.message.slice(0, 200)}`,
-              displayAgent
-            );
-          });
-
-        return jsonResponse(res, 200, { ok: true, sessionId: `pending-${taskId}` });
+        return jsonResponse(res, 200, { ok: true, sessionId: jobId });
       } catch (err) {
         return jsonResponse(res, 503, { error: err.message });
       }
     }
 
     // ── Create agent with role ──
-    if (req.method === "POST" && path === "/openclaw/agents/create") {
+    if (req.method === "POST" && path === "/hermes/agents/create") {
       try {
         await syncProviderConfig();
         const { name, role, description } = JSON.parse(await readBody(req));
@@ -602,13 +592,8 @@ function startHttpServer() {
           .filter(Boolean)
           .join(" ");
 
-        const result = await gatewayCall("chat.send", {
-          message: rolePrompt,
-          sessionKey: `agent:main:${name}`,
-          idempotencyKey: `create-agent-${name}-${Date.now()}`,
-        });
-
-        const sessionId = result?.runId || `agent:main:${name}`;
+        const result = await hermesChat(rolePrompt);
+        const sessionId = result?.session_id || `agent-${name}`;
 
         // Upsert agent in DB with role and description
         await upsertAgent(name, "active", sessionId);
@@ -641,9 +626,8 @@ function startHttpServer() {
           return jsonResponse(res, 400, { error: "Missing agentApprovalId or resolution" });
         }
 
-        // Use CLI to resolve the approval
-        await gatewayCall("exec.approval.resolve", {
-          approvalId: agentApprovalId,
+        // POST to Hermes to resolve the approval
+        await hermesRequest("POST", `/approvals/${encodeURIComponent(agentApprovalId)}/resolve`, {
           resolution,
         });
 
@@ -666,7 +650,110 @@ function startHttpServer() {
   });
 }
 
-// ─── Completion polling ───────────────────────────────────────────────────────
+// ─── Job completion polling ──────────────────────────────────────────────────
+
+/**
+ * Poll a Hermes job for completion and update the task in the DB.
+ * Hermes jobs are async — we poll /jobs/:id until done.
+ */
+async function pollJobCompletion(jobId, taskId, taskTitle, agentName, maxAttempts = 60) {
+  let attempts = 0;
+  const pollInterval = 5000; // 5 seconds
+
+  const poll = async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      console.error(`[pollJob] Gave up polling job ${jobId} after ${maxAttempts} attempts`);
+      await updateTaskStatus(taskId, "review", "Error: Job timed out after polling");
+      await insertActivity(
+        "task_error",
+        `Task "${taskTitle}" timed out waiting for completion`,
+        agentName
+      );
+      return;
+    }
+
+    try {
+      // Try to get the chat result via sessions, since Hermes may store results there
+      let jobStatus;
+      try {
+        jobStatus = await hermesRequest("GET", `/jobs/${encodeURIComponent(jobId)}`, null, 5000);
+      } catch {
+        // Job endpoint might not exist or job may have already completed
+        // Try checking sessions for output
+        setTimeout(poll, pollInterval);
+        return;
+      }
+
+      const status = jobStatus?.status || jobStatus?.state;
+      if (status === "running" || status === "pending" || status === "in_progress") {
+        setTimeout(poll, pollInterval);
+        return;
+      }
+
+      // Job completed (or failed)
+      const output =
+        jobStatus?.result?.response ||
+        jobStatus?.result?.text ||
+        jobStatus?.output ||
+        jobStatus?.response ||
+        JSON.stringify(jobStatus).slice(0, 5000);
+
+      const sessionId = jobStatus?.session_id || jobId;
+
+      if (status === "failed" || status === "error") {
+        const errorMsg = jobStatus?.error || output || "Job failed";
+        await updateTaskStatus(taskId, "review", `Error: ${errorMsg}`);
+        await insertActivity(
+          "task_error",
+          `Task "${taskTitle}" failed: ${String(errorMsg).slice(0, 200)}`,
+          agentName
+        );
+        console.error(`[pollJob] Task "${taskTitle}" failed: ${String(errorMsg).slice(0, 100)}`);
+        return;
+      }
+
+      // Success — update task to review with output
+      await updateTaskStatus(taskId, "review", output);
+
+      // Update the task's session ID and output in DB
+      try {
+        await sql`
+          UPDATE mc_tasks
+          SET agent_session_id = ${sessionId},
+              dispatch_output = ${output}
+          WHERE id = ${taskId}
+        `;
+      } catch (e) {
+        console.error("[pollJob] Failed to save output:", e.message);
+      }
+
+      // Increment agent tasks_completed
+      try {
+        await sql`
+          UPDATE mc_agents
+          SET tasks_completed = tasks_completed + 1, last_active = NOW()
+          WHERE instance_id = ${INSTANCE_ID} AND name = ${agentName}
+        `;
+      } catch { /* ignore */ }
+
+      await insertActivity(
+        "task_completed",
+        `Task "${taskTitle}" completed by ${agentName}: ${(output || "").slice(0, 200)}`,
+        agentName
+      );
+      console.log(`[pollJob] Task "${taskTitle}" completed by ${agentName}`);
+    } catch (err) {
+      console.error(`[pollJob] Error polling job ${jobId}:`, err.message);
+      setTimeout(poll, pollInterval);
+    }
+  };
+
+  // Start polling after initial delay
+  setTimeout(poll, pollInterval);
+}
+
+// ─── Dispatched task polling ─────────────────────────────────────────────────
 
 async function pollDispatchedTasks() {
   try {
@@ -683,47 +770,48 @@ async function pollDispatchedTasks() {
 
     if (dispatchedTasks.length === 0) return;
 
-    // Get current sessions list to check for activity
+    // Get current sessions list from Hermes to check for activity
     let sessions;
     try {
-      sessions = await gatewayCall("sessions.list");
+      sessions = await hermesRequest("GET", "/sessions", null, 5000);
     } catch {
-      return; // Gateway unreachable, skip this poll
+      return; // Hermes unreachable, skip this poll
     }
 
     const sessionList = Array.isArray(sessions) ? sessions : sessions?.sessions || [];
 
     for (const task of dispatchedTasks) {
-      const sessionKey = task.agent_session_id;
+      const sessionId = task.agent_session_id;
 
       // Check if the session has an active run
       const session = sessionList.find(
-        (s) => s.sessionKey === sessionKey || s.sessionId === sessionKey || s.key === sessionKey
+        (s) => s.session_id === sessionId || s.id === sessionId
       );
 
       // If session has no active run, it's completed
       const isActive = session?.activeRun || session?.running || session?.status === "running";
       if (isActive) continue;
 
-      // Try to get the transcript to extract a completion summary
+      // Try to get the session transcript to extract a completion summary
       let output = null;
       try {
-        const transcript = await gatewayCall("sessions.preview", { sessionKey });
-        const messages = transcript?.messages || transcript?.transcript || [];
+        const detail = await hermesRequest("GET", `/sessions/${encodeURIComponent(sessionId)}`, null, 5000);
+        const messages = detail?.messages || detail?.history || detail?.transcript || [];
         if (Array.isArray(messages) && messages.length > 0) {
           // Get the last assistant message as the output summary
           const assistantMsgs = messages.filter(
-            (m) => m.role === "assistant" && m.content
+            (m) => m.role === "assistant" && (m.content || m.text)
           );
           if (assistantMsgs.length > 0) {
             const lastMsg = assistantMsgs[assistantMsgs.length - 1];
-            output = typeof lastMsg.content === "string"
-              ? lastMsg.content.slice(0, 5000)
-              : JSON.stringify(lastMsg.content).slice(0, 5000);
+            const content = lastMsg.content || lastMsg.text;
+            output = typeof content === "string"
+              ? content.slice(0, 5000)
+              : JSON.stringify(content).slice(0, 5000);
           }
         }
       } catch {
-        output = "Task completed (transcript unavailable)";
+        output = "Task completed (session detail unavailable)";
       }
 
       // Update task to review with output
@@ -757,9 +845,10 @@ async function pollDispatchedTasks() {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-console.log(`OpenClaw Sync Daemon starting...`);
+console.log(`Hermes Sync Daemon starting...`);
 console.log(`  Instance: ${INSTANCE_ID}`);
 console.log(`  Container: ${CONTAINER_NAME}`);
+console.log(`  Hermes WebAPI: ${HERMES_BASE_URL}`);
 console.log(`  HTTP Port: ${SYNC_HTTP_PORT}`);
 
 startHttpServer();
@@ -773,11 +862,11 @@ setInterval(syncProviderConfig, 60000);
 // Initial provider config sync + connectivity check
 (async () => {
   await syncProviderConfig();
-  const health = await gatewayHealth();
-  if (health?.ok) {
-    console.log("OpenClaw gateway is reachable");
-    await insertActivity("agent_connected", "Sync daemon connected to OpenClaw gateway", "system");
+  const health = await hermesHealth();
+  if (health) {
+    console.log("Hermes Agent WebAPI is reachable");
+    await insertActivity("agent_connected", "Sync daemon connected to Hermes Agent", "system");
   } else {
-    console.log("OpenClaw gateway not reachable yet (will retry on each request)");
+    console.log("Hermes Agent WebAPI not reachable yet (will retry on each request)");
   }
 })();

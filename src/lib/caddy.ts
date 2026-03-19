@@ -1,13 +1,14 @@
 import { NodeSSH } from "node-ssh";
+import { env } from "@/lib/env";
 
 const CADDYFILE_PATH = "/etc/caddy/Caddyfile";
 
 const getSSHConnection = async () => {
   const ssh = new NodeSSH();
   await ssh.connect({
-    host: process.env.HETZNER_SERVER_IP!,
+    host: env.HETZNER_SERVER_IP,
     username: "root",
-    privateKey: process.env.HETZNER_SSH_PRIVATE_KEY!,
+    privateKey: env.HETZNER_SSH_PRIVATE_KEY,
   });
   return ssh;
 };

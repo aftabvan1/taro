@@ -8,7 +8,7 @@ import {
   instances,
 } from "@/lib/db/schema";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const auth = authenticate(req);
@@ -52,17 +52,16 @@ export async function GET(req: NextRequest) {
   let totalTasks = 0;
 
   if (boards.length > 0) {
-    const boardIds = new Set(boards.map((b) => b.id));
-    const allTasks = await db
-      .select({ status: mcTasks.status, boardId: mcTasks.boardId })
-      .from(mcTasks);
+    const boardIds = boards.map((b) => b.id);
+    const userTasks = await db
+      .select({ status: mcTasks.status })
+      .from(mcTasks)
+      .where(inArray(mcTasks.boardId, boardIds));
 
-    for (const t of allTasks) {
-      if (boardIds.has(t.boardId)) {
-        const status = t.status as keyof typeof taskBreakdown;
-        if (status in taskBreakdown) taskBreakdown[status]++;
-        totalTasks++;
-      }
+    for (const t of userTasks) {
+      const status = t.status as keyof typeof taskBreakdown;
+      if (status in taskBreakdown) taskBreakdown[status]++;
+      totalTasks++;
     }
   }
 

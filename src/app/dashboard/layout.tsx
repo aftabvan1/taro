@@ -30,7 +30,7 @@ export interface Instance {
   status: "provisioning" | "running" | "stopped" | "error";
   region: string;
   serverIp: string | null;
-  openclawPort: number | null;
+  agentPort: number | null;
   ttydPort: number | null;
   mcPort: number | null;
   hetznerServerId?: string | null;

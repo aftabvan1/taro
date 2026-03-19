@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticate, isAuthenticated } from "@/lib/middleware/auth";
 import { getInstanceForUser, execSyncDaemon } from "@/lib/ssh-exec";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -11,22 +11,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No instance found" }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { message, sessionId } = body;
-
-  if (!message || typeof message !== "string") {
-    return NextResponse.json({ error: "Missing message" }, { status: 400 });
-  }
-
-  // Limit message length
-  if (message.length > 10000) {
-    return NextResponse.json({ error: "Message too long" }, { status: 400 });
-  }
+  const prefix = instance.agentFramework || "openclaw";
 
   const result = await execSyncDaemon(instance.mcPort, {
-    method: "POST",
-    path: "/openclaw/chat",
-    body: { message, sessionId: sessionId || undefined },
+    method: "GET",
+    path: `/${prefix}/mc-context`,
   });
 
   return NextResponse.json(result.data, { status: result.status });

@@ -8,6 +8,7 @@ import { logActivity } from "@/lib/activity";
 import { provisionInstance } from "@/lib/provisioner";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 const createInstanceSchema = z.object({
   name: z
@@ -18,6 +19,7 @@ const createInstanceSchema = z.object({
       /^[a-z0-9-]+$/,
       "Name must be lowercase alphanumeric with hyphens only"
     ),
+  agentFramework: z.enum(["openclaw", "hermes"]).default("openclaw"),
 });
 
 // GET /api/instances — list user's instances
@@ -44,6 +46,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/instances — create a new instance
 export async function POST(req: NextRequest) {
+  const limited = await rateLimit(req, { windowMs: 60 * 60 * 1000, max: 5 });
+  if (limited) return limited;
+
   const auth = authenticate(req);
   if (!isAuthenticated(auth)) return auth;
 
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name } = parsed.data;
+    const { name, agentFramework } = parsed.data;
 
     // Require active Stripe subscription before allowing instance creation
     const [user] = await db
@@ -76,18 +81,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for duplicate instance name for this user
+    // Pro plan: 1 instance max
     const existing = await db
       .select({ id: instances.id })
       .from(instances)
       .where(eq(instances.userId, auth.userId))
       .limit(1);
 
-    // Pro plan: 1 instance max
     if (existing.length >= 1) {
       return NextResponse.json(
         { error: "Instance limit reached for your plan" },
         { status: 403 }
+      );
+    }
+
+    // Instance names are used in DNS subdomains — must be globally unique
+    const nameTaken = await db
+      .select({ id: instances.id })
+      .from(instances)
+      .where(eq(instances.name, name))
+      .limit(1);
+
+    if (nameTaken.length > 0) {
+      return NextResponse.json(
+        { error: "Instance name is already taken. Please choose a different name." },
+        { status: 409 }
       );
     }
 
@@ -98,6 +116,7 @@ export async function POST(req: NextRequest) {
       .values({
         userId: auth.userId,
         name,
+        agentFramework,
         status: "provisioning",
         mcAuthToken,
       })
@@ -110,12 +129,20 @@ export async function POST(req: NextRequest) {
     );
 
     // Trigger Docker provisioning (fire-and-forget — don't block the response)
-    provisionInstance(instance.id, name, mcAuthToken).catch((err) => {
+    provisionInstance(instance.id, name, mcAuthToken, agentFramework).catch(async (err) => {
       logger.error("Provisioning failed:", err);
-      db.update(instances)
-        .set({ status: "error" })
-        .where(eq(instances.id, instance.id))
-        .catch((e) => logger.error("Failed to update instance status:", e));
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await db.update(instances)
+            .set({ status: "error" })
+            .where(eq(instances.id, instance.id));
+          return;
+        } catch (e) {
+          logger.error(`Failed to mark instance as error (attempt ${attempt + 1}/3):`, e);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+      logger.error(`CRITICAL: Instance ${instance.id} stuck in provisioning state — manual intervention needed`);
     });
 
     const { mcAuthToken: _, ...safeInstance } = instance;

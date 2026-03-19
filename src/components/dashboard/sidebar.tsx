@@ -110,7 +110,7 @@ interface NavItem {
 
 function buildNavItems(instance?: Instance | null): NavItem[] {
   const instanceDomain = process.env.NEXT_PUBLIC_INSTANCE_DOMAIN || "instances.taroagent.com";
-  const webChatUrl = instance?.name
+  const webChatUrl = instance?.name && instance?.status === "running"
     ? `https://${instance.name}.${instanceDomain}${instance.mcAuthToken ? `#token=${instance.mcAuthToken}` : ""}`
     : undefined;
 

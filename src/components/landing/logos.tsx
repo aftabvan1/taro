@@ -7,7 +7,7 @@ export const Logos = () => {
   return (
     <section className="relative border-y border-white/[0.04] py-12 overflow-hidden">
       <p className="mb-8 text-center font-mono text-xs uppercase tracking-widest text-muted/50">
-        Built for teams using OpenClaw
+        Built for teams deploying AI agents
       </p>
       <div className="relative mx-auto max-w-4xl">
         {/* Fade edges */}

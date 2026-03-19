@@ -4,13 +4,14 @@ import { backups, instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/activity";
 import { validateShellName } from "@/lib/shell-sanitize";
+import { env } from "@/lib/env";
 
 const getSSHConnection = async () => {
   const ssh = new NodeSSH();
   await ssh.connect({
-    host: process.env.HETZNER_SERVER_IP!,
+    host: env.HETZNER_SERVER_IP,
     username: "root",
-    privateKey: process.env.HETZNER_SSH_PRIVATE_KEY!,
+    privateKey: env.HETZNER_SSH_PRIVATE_KEY,
   });
   return ssh;
 };

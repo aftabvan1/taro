@@ -132,16 +132,24 @@ export async function DELETE(
       );
     }
 
+    if (instance.status === "provisioning") {
+      return NextResponse.json(
+        { error: "Cannot delete an instance while it is still provisioning. Please wait for provisioning to complete." },
+        { status: 409 }
+      );
+    }
+
     // Clean up Docker containers, systemd services, and Caddy config on the server
     if (instance.containerName) {
       try {
-        await deleteInstance(instance.containerName);
+        await deleteInstance(instance.containerName, instance.id);
       } catch (cleanupError) {
         logger.error("Container cleanup failed:", cleanupError);
         // Don't delete DB record if server cleanup fails — mark as error so user can retry
+        // Null out ports so they can be reused by future instances
         await db
           .update(instances)
-          .set({ status: "error" })
+          .set({ status: "error", agentPort: null, ttydPort: null, mcPort: null })
           .where(eq(instances.id, id));
         return NextResponse.json(
           { error: "Failed to clean up server resources. Instance marked as error — please retry." },

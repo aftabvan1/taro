@@ -63,9 +63,11 @@ export async function POST(
     // Continue without custom fields
   }
 
+  const prefix = owned.instance.agentFramework || "openclaw";
+
   const dispatchResult = await execSyncDaemon(owned.instance.mcPort, {
     method: "POST",
-    path: "/openclaw/dispatch",
+    path: `/${prefix}/dispatch`,
     body: {
       taskId: owned.task.id,
       taskTitle: owned.task.title,
@@ -96,7 +98,7 @@ export async function POST(
     .update(mcTasks)
     .set({
       status: "in_progress",
-      openclawSessionId: sessionId || null,
+      agentSessionId: sessionId || null,
       dispatchedAt: new Date(),
     })
     .where(eq(mcTasks.id, id))
@@ -112,7 +114,7 @@ export async function POST(
     priority: updated.priority,
     assignee: updated.assignee,
     due_date: updated.dueDate?.toISOString() ?? null,
-    openclaw_session_id: updated.openclawSessionId ?? null,
+    agent_session_id: updated.agentSessionId ?? null,
     dispatched_at: updated.dispatchedAt?.toISOString() ?? null,
     dispatch_output: updated.dispatchOutput ?? null,
     created_at: updated.createdAt.toISOString(),

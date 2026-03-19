@@ -8,7 +8,7 @@ export interface MCAgent {
   last_active: string;
   cpu_usage: number;
   memory_usage: number;
-  openclaw_session_id?: string;
+  agent_session_id?: string;
 }
 
 export interface MCBoardGroup {
@@ -44,7 +44,7 @@ export interface MCTask {
   priority: "low" | "medium" | "high";
   assignee: string | null;
   due_date: string | null;
-  openclaw_session_id: string | null;
+  agent_session_id: string | null;
   dispatched_at: string | null;
   dispatch_output: string | null;
   tags: MCTag[];
@@ -67,9 +67,9 @@ export interface MCCustomField {
   created_at: string;
 }
 
-// ─── Live OpenClaw types (from sync daemon RPC bridge) ──────────────────────
+// ─── Live agent types (from sync daemon RPC bridge) ──────────────────────
 
-export interface OpenClawSession {
+export interface AgentSession {
   sessionId: string;
   agentName?: string;
   status: string;
@@ -78,7 +78,7 @@ export interface OpenClawSession {
   messages?: number;
 }
 
-export interface OpenClawStatus {
+export interface AgentStatus {
   version?: string;
   uptime?: number;
   agents?: number;
@@ -87,21 +87,21 @@ export interface OpenClawStatus {
   [key: string]: unknown;
 }
 
-export interface OpenClawChatResponse {
+export interface AgentChatResponse {
   ok?: boolean;
   sessionId?: string;
   [key: string]: unknown;
 }
 
-export interface OpenClawTranscriptMessage {
+export interface AgentTranscriptMessage {
   role: string;
   content: string;
   timestamp?: string;
   tool?: string;
 }
 
-export interface OpenClawSessionPreview {
+export interface AgentSessionPreview {
   sessionId: string;
-  messages: OpenClawTranscriptMessage[];
+  messages: AgentTranscriptMessage[];
   [key: string]: unknown;
 }

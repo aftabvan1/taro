@@ -379,9 +379,9 @@ export default function SettingsPage() {
             mono
           />
           <InfoRow
-            icon={<span className="font-mono text-[10px]">OC</span>}
-            label="OpenClaw Port"
-            value={instance.openclawPort ?? "--"}
+            icon={<span className="font-mono text-[10px]">AP</span>}
+            label="Agent Port"
+            value={instance.agentPort ?? "--"}
             mono
           />
           <InfoRow

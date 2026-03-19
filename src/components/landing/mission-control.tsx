@@ -236,13 +236,13 @@ export const MissionControl = () => {
           className="order-1 lg:order-2"
         >
           <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Your agents work 24/7.<br />
-            <span className="text-muted">You should know exactly what they&apos;re doing.</span>
+            Hermes remembers everything.<br />
+            <span className="text-muted">But do you know what it&apos;s doing right now?</span>
           </h3>
           <p className="mt-4 max-w-md leading-relaxed text-muted">
-            Most people deploy an AI agent and hope for the best. Mission Control
-            shows you every task, every decision, every resource spike — so you
-            catch problems before your users do.
+            Self-improving agents are powerful — and unpredictable. Mission Control
+            shows you every task, every decision, every skill your agent creates — so
+            you&apos;re always in the loop, not just hoping it&apos;s doing the right thing.
           </p>
           <ul className="mt-6 space-y-3">
             {[
