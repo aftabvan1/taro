@@ -26,7 +26,7 @@ const FRAMEWORK_CONFIGS = {
       { host: "data/mcporter-config", container: "/home/node/.mcporter" },
     ],
     env: {
-      NODE_OPTIONS: "--max-old-space-size=2048",
+      NODE_OPTIONS: "--max-old-space-size=1536",
       NPM_CONFIG_CACHE: "/data/.npm-cache",
       PATH: "/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     },
@@ -569,35 +569,42 @@ export const reprovisionInstance = async (
     ...fw.extraVolumes.map(v => `./${v.host}:${v.container}`),
   ];
 
-  // Build environment variables
-  const envLines = Object.entries(fw.env).map(([k, v]) => `      - ${k}=${v}`).join("\n");
+  // Build environment variables — omit the block entirely if empty (empty `environment:` is invalid YAML)
+  const envEntries = Object.entries(fw.env);
+  const envBlock = envEntries.length > 0
+    ? `    environment:\n${envEntries.map(([k, v]) => `      - ${k}=${v}`).join("\n")}`
+    : "";
+
+  // Build security options
+  const securityOpts = ["no-new-privileges:true"];
+  if (fw.useSeccomp) securityOpts.push("seccomp=/opt/taro/seccomp/openclaw-seccomp.json");
+
+  const commandLine = fw.command ? `\n    command: ${fw.command}` : "";
 
   // Rebuild the docker-compose.yml with security hardening
   const compose = `
 services:
   ${fw.containerSuffix}:
     image: ${fw.image}
-    container_name: ${containerName}-${fw.containerSuffix}
+    container_name: ${containerName}-${fw.containerSuffix}${commandLine}
     ports:
       - "127.0.0.1:${agentPort}:${fw.internalPort}"
     volumes:
 ${volumes.map(v => `      - ${v}`).join("\n")}
-    environment:
-${envLines}
+${envBlock}
     restart: unless-stopped
     mem_limit: 4g
     memswap_limit: 6g
     mem_swappiness: 60
     cpus: 2
     pids_limit: 256
-    oom_score_adj: -200
+    oom_score_adj: -200${fw.readOnly ? `
     read_only: true
     tmpfs:
       - /tmp:size=256m,nosuid,nodev
-      - /run:size=64m,noexec,nosuid,nodev
+      - /run:size=64m,noexec,nosuid,nodev` : ""}
     security_opt:
-      - no-new-privileges:true
-      - seccomp=/opt/taro/seccomp/openclaw-seccomp.json
+${securityOpts.map(o => `      - ${o}`).join("\n")}
     cap_drop:
       - ALL
     cap_add:
