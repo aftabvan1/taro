@@ -25,10 +25,10 @@ export const CTASection = () => {
         </div>
 
         <h2 className="mx-auto max-w-lg text-3xl font-bold tracking-tight sm:text-4xl">
-          Your agent could be live in 30 seconds.
+          Your AI agent could be working right now.
         </h2>
         <p className="mx-auto mt-4 max-w-md text-muted">
-          Deploy, monitor, and manage — all from one dashboard.
+          Deploy in 30 seconds. Connect your channels. Watch it work.
         </p>
         <div className="mt-10 flex justify-center">
           <Button size="lg" href="/auth/register">

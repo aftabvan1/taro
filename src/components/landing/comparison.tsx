@@ -9,23 +9,23 @@ const STEPS = [
   {
     number: "01",
     icon: Rocket,
-    title: "Deploy in 30 seconds",
+    title: "Your agent goes live",
     description:
-      "Pick a name, click deploy. We handle the server, Docker, networking, SSL, and DNS. Your OpenClaw instance is live before you finish your coffee.",
+      "Pick a name, hit deploy. In 30 seconds, your AI agent is running, ready to connect to your channels and start working.",
   },
   {
     number: "02",
     icon: MessageCircle,
-    title: "Connect your channels",
+    title: "It starts talking",
     description:
-      "Run openclaw configure to connect Telegram, Discord, Slack, email, or any of 850+ integrations. Your agent starts responding immediately.",
+      "Connect Telegram, Discord, Slack, WhatsApp, email — or any of 850+ tools. Your agent starts responding to real messages immediately.",
   },
   {
     number: "03",
     icon: LayoutDashboard,
-    title: "Monitor from Mission Control",
+    title: "You see everything",
     description:
-      "See every agent, task, and resource metric in one dashboard. Kanban boards, activity feeds, real-time CPU/RAM — you're never flying blind.",
+      "Every task, every message, every decision your agent makes — visible in one dashboard. Know exactly what's happening without touching a terminal.",
   },
 ] as const;
 
@@ -40,8 +40,8 @@ export const Comparison = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Live in three steps.{" "}
-            <span className="text-gradient">Seriously.</span>
+            From zero to a working AI agent.{" "}
+            <span className="text-gradient">Three steps.</span>
           </h2>
           <p className="mt-4 text-muted">
             No infrastructure knowledge required. No config files. No waiting.

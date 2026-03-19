@@ -18,11 +18,11 @@ export const FeaturesGrid = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything you need,{" "}
-            <span className="text-gradient">all in one cup</span>
+            Everything your agent needs to run.{" "}
+            <span className="text-gradient">Everything you need to manage it.</span>
           </h2>
           <p className="mt-4 text-muted">
-            From deploy to production monitoring — all in one platform.
+            Deploy, connect, monitor, and control — all from one platform.
           </p>
         </motion.div>
 

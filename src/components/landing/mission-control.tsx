@@ -236,20 +236,20 @@ export const MissionControl = () => {
           className="order-1 lg:order-2"
         >
           <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Your agents are autonomous.<br />
-            <span className="text-muted">Your visibility shouldn&apos;t be optional.</span>
+            Your agents work 24/7.<br />
+            <span className="text-muted">You should know exactly what they&apos;re doing.</span>
           </h3>
           <p className="mt-4 max-w-md leading-relaxed text-muted">
-            Mission Control gives you real-time visibility into every OpenClaw
-            instance you run. See what&apos;s happening, track every task, and catch
-            problems before they become incidents.
+            Most people deploy an AI agent and hope for the best. Mission Control
+            shows you every task, every decision, every resource spike — so you
+            catch problems before your users do.
           </p>
           <ul className="mt-6 space-y-3">
             {[
-              "See all agents, tasks, and resource usage in one pane",
-              "Kanban boards to track what agents are working on",
-              "Live CPU, memory, and network monitoring",
-              "Full activity timeline — every action, searchable",
+              "Know which agents are busy, idle, or stuck — at a glance",
+              "Track every task your agents handle with drag-and-drop boards",
+              "Spot slowdowns before they affect your users",
+              "Searchable history of everything your agents have done",
               "Connect to 850+ tools — GitHub, Slack, Gmail, and more",
             ].map((item) => (
               <li

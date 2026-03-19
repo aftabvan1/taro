@@ -97,14 +97,14 @@ function HeroOrbitDeck() {
           </span>
 
           <h1 className="mt-8 font-[family-name:var(--font-fredoka)] text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
-            Your OpenClaw agent,{" "}
-            <span className="text-gradient">live in 30 seconds.</span>
+            Your AI agent, always on.{" "}
+            <span className="text-gradient">Live in 30 seconds.</span>
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-foreground/50 md:text-lg">
-            The only managed OpenClaw platform with a built-in Mission Control
-            dashboard. Terminal access, automated backups, real-time monitoring,
-            and 850+ integrations — $14/mo.
+            Deploy an AI agent that works 24/7 — answering messages, running
+            tasks, connecting to 850+ tools. See everything it does from one
+            dashboard. $14/mo.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">

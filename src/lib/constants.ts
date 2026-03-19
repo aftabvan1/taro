@@ -43,37 +43,37 @@ export const FEATURES = [
   {
     title: "One-Click Deploy",
     description:
-      "From zero to a running OpenClaw instance in 30 seconds. We handle the server, Docker, networking, and SSL. You just click deploy.",
+      "Your AI agent goes from nothing to live in 30 seconds. We handle servers, networking, and SSL — you just click deploy.",
     icon: "Zap",
   },
   {
     title: "Mission Control",
     description:
-      "A full dashboard to manage your agents, track tasks on Kanban boards, and monitor everything from one place. Not just a container — a cockpit.",
+      "See what every agent is doing right now. Task boards, activity feeds, resource stats — one dashboard to manage it all.",
     icon: "LayoutDashboard",
   },
   {
     title: "Web Terminal",
     description:
-      "A real terminal in your browser. Full shell access to your instance — install packages, debug, configure. No SSH setup needed.",
+      "Full control when you need it. Install packages, debug, configure — all from your browser. No SSH keys, no setup.",
     icon: "Terminal",
   },
   {
     title: "Live Monitoring",
     description:
-      "Real-time CPU, memory, and network stats pulled straight from your container. Know exactly what your agent is doing.",
+      "Know if your agent is healthy or struggling. Real-time CPU, memory, and network stats — so you catch issues before your users notice.",
     icon: "Activity",
   },
   {
     title: "Automated Backups",
     description:
-      "Your agent's data, backed up on schedule. One-click restore to any point in time. Sleep well.",
+      "Never lose your agent's memory or config. Automatic backups with one-click restore — sleep well.",
     icon: "ShieldCheck",
   },
   {
     title: "850+ Integrations",
     description:
-      "Connect your agents to 850+ tools — GitHub, Gmail, Slack, Notion, Linear, Stripe, and more. One click to authenticate.",
+      "Your agent talks to the tools you already use. GitHub, Gmail, Slack, Notion, Stripe — one click to connect, zero config.",
     icon: "Plug",
   },
 ] as const;

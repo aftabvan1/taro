@@ -7,21 +7,21 @@ import { LinesPatternCard, LinesPatternCardBody } from "@/components/ui/card-wit
 import { bouncyContainer, bouncyItem } from "@/lib/animation-variants";
 
 const PAIN_POINTS = [
-  "Provision a VPS and configure Docker",
-  "Set up SSL, DNS, and reverse proxies",
-  "Write cron jobs for backups",
-  "Build monitoring from scratch",
-  "Patch security vulnerabilities monthly",
-  "Debug networking at 2 AM",
+  "Spend hours provisioning servers instead of building",
+  "Fight SSL, DNS, and networking before your agent does anything",
+  "Hope your backups work when something breaks",
+  "Build your own monitoring or fly blind",
+  "Patch security holes instead of shipping features",
+  "Debug at 2 AM when your agent goes silent",
 ];
 
 const SOLUTIONS = [
-  "One-click deploy — live in 30 seconds",
-  "SSL, DNS, and networking handled automatically",
-  "Automated backups with one-click restore",
-  "Real-time monitoring built into the dashboard",
-  "Hardened containers with auto-patching",
-  "Mission Control to see everything at a glance",
+  "Agent live and responding in 30 seconds",
+  "Connects to Telegram, Discord, Slack, email instantly",
+  "Automatic backups — restore with one click if anything breaks",
+  "See exactly what your agent is doing, right now",
+  "Security handled — hardened containers, auto-patched",
+  "Mission Control dashboard — never wonder what's happening",
 ];
 
 export const ProblemSolution = () => {
@@ -35,11 +35,12 @@ export const ProblemSolution = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Self-hosting is painful.{" "}
-            <span className="text-gradient">Taro makes it painless.</span>
+            You want AI agents that work.{" "}
+            <span className="text-gradient">Not weekends lost to servers.</span>
           </h2>
           <p className="mt-4 text-muted">
-            You want to ship AI agents, not babysit infrastructure.
+            Other platforms hand you a server and wish you luck. Taro handles
+            everything so you can focus on what your agent actually does.
           </p>
         </motion.div>
 
@@ -68,8 +69,8 @@ export const ProblemSolution = () => {
                 ))}
               </ul>
               <p className="mt-8 font-mono text-xs text-red-400/60">
-                ~2 hours of setup if you know what you&apos;re doing. A whole
-                weekend if you don&apos;t. Plus ongoing maintenance forever.
+                ~2 hours before your agent does its first useful thing.
+                A weekend if you&apos;re unlucky.
               </p>
             </LinesPatternCardBody>
           </LinesPatternCard>
@@ -98,7 +99,7 @@ export const ProblemSolution = () => {
                 ))}
               </ul>
               <p className="mt-8 font-mono text-xs text-brand/60">
-                30 seconds to deploy. Zero maintenance after.
+                30 seconds to a working agent. Zero maintenance after.
               </p>
             </LinesPatternCardBody>
           </LinesPatternCard>
