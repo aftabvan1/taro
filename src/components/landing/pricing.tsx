@@ -99,7 +99,7 @@ export const Pricing = () => {
                 <span className="font-mono text-4xl font-bold">
                   ${plan.price}
                 </span>
-                <span className="text-sm text-muted">/mo</span>
+                <span className="text-sm text-muted">{plan.priceLabel}</span>
               </div>
 
               <Button

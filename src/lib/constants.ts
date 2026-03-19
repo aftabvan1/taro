@@ -15,6 +15,7 @@ export const PLANS = [
       "Priority support",
     ],
     cta: "Deploy Now",
+    priceLabel: "/mo",
     highlighted: true,
     comingSoon: false,
   },
@@ -23,6 +24,7 @@ export const PLANS = [
     price: 49,
     description: "For teams running agents at scale",
     cupSize: "Taro Party",
+    priceLabel: "/seat/mo",
     features: [
       "4 vCPU, 8GB RAM",
       "Full web terminal",
