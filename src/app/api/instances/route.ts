@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -9,6 +9,8 @@ import { provisionInstance } from "@/lib/provisioner";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { rateLimit } from "@/lib/rate-limit";
+
+export const maxDuration = 300; // 5 minutes — provisioning involves SSH + docker image pulls
 
 const createInstanceSchema = z.object({
   name: z
@@ -128,21 +130,26 @@ export async function POST(req: NextRequest) {
       `Instance "${name}" created`
     );
 
-    // Trigger Docker provisioning (fire-and-forget — don't block the response)
-    provisionInstance(instance.id, name, mcAuthToken, agentFramework).catch(async (err) => {
-      logger.error("Provisioning failed:", err);
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await db.update(instances)
-            .set({ status: "error" })
-            .where(eq(instances.id, instance.id));
-          return;
-        } catch (e) {
-          logger.error(`Failed to mark instance as error (attempt ${attempt + 1}/3):`, e);
-          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    // Run provisioning after the response is sent — `after()` keeps the
+    // Vercel function alive (via waitUntil) so SSH + docker commands complete.
+    after(async () => {
+      try {
+        await provisionInstance(instance.id, name, mcAuthToken, agentFramework);
+      } catch (err) {
+        logger.error("Provisioning failed:", err);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await db.update(instances)
+              .set({ status: "error" })
+              .where(eq(instances.id, instance.id));
+            return;
+          } catch (e) {
+            logger.error(`Failed to mark instance as error (attempt ${attempt + 1}/3):`, e);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          }
         }
+        logger.error(`CRITICAL: Instance ${instance.id} stuck in provisioning state`);
       }
-      logger.error(`CRITICAL: Instance ${instance.id} stuck in provisioning state — manual intervention needed`);
     });
 
     const { mcAuthToken: _, ...safeInstance } = instance;

@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ["node-ssh", "ssh2"],
+  outputFileTracingIncludes: {
+    "/api/instances": ["./docker/scripts/**"],
+    "/api/instances/[id]/deploy-sync": ["./docker/scripts/**"],
+  },
   async headers() {
     return [
       {
