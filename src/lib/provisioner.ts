@@ -26,7 +26,7 @@ const FRAMEWORK_CONFIGS = {
       { host: "data/mcporter-config", container: "/home/node/.mcporter" },
     ],
     env: {
-      NODE_OPTIONS: "--max-old-space-size=768",
+      NODE_OPTIONS: "--max-old-space-size=2048",
       NPM_CONFIG_CACHE: "/data/.npm-cache",
       PATH: "/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     },
