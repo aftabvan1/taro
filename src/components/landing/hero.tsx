@@ -25,7 +25,7 @@ export const Hero = () => {
         <motion.div variants={itemVariants}>
           <span className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-4 py-1.5 font-mono text-xs text-brand">
             <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
-            Now supporting Hermes Agent
+            Hermes Agent coming soon
           </span>
         </motion.div>
 
@@ -43,9 +43,9 @@ export const Hero = () => {
           variants={itemVariants}
           className="mt-6 max-w-2xl text-lg leading-relaxed text-muted md:text-xl"
         >
-          The only platform that runs both OpenClaw and Hermes Agent.
-          Deploy in 30 seconds, govern with task boards and real-time
-          oversight — no matter which framework you choose.
+          Deploy OpenClaw in 30 seconds with task boards and real-time
+          oversight. Hermes Agent support coming soon — same dashboard,
+          same workflow.
         </motion.p>
 
         {/* CTAs */}

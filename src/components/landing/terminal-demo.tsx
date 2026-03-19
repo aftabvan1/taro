@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 
-const COMMAND = "taro deploy --framework hermes --prod";
+const COMMAND = "taro deploy --framework openclaw --prod";
 const CHAR_DELAY = 0.05;
 const COMMAND_DURATION = COMMAND.length * CHAR_DELAY;
 

@@ -9,12 +9,12 @@ import { cn } from "@/lib/utils";
 
 const FAQS = [
   {
-    q: "Can I switch between OpenClaw and Hermes?",
-    a: "Not on the same instance — they're different runtimes. But you can deploy one, try it, delete, and deploy the other in 30 seconds. We don't lock you in.",
+    q: "When is Hermes support coming?",
+    a: "Soon. We're building first-class Hermes Agent support with the same Mission Control dashboard, backups, and monitoring you get with OpenClaw. Join the waitlist and we'll let you know the moment it's live.",
   },
   {
-    q: "Why does Taro support two frameworks?",
-    a: "Because the 'best' framework depends on what you're building. OpenClaw excels at always-on multi-channel bots — Telegram, Discord, Slack, all at once. Hermes excels at long-running tasks where the agent needs to remember context across sessions and improve over time. We think you should pick the right tool, not be forced into one.",
+    q: "Why two frameworks?",
+    a: "Because the 'best' framework depends on what you're building. OpenClaw excels at always-on multi-channel bots — Telegram, Discord, Slack, all at once. Hermes excels at long-running tasks with persistent memory. We think you should pick the right tool, not be forced into one.",
   },
   {
     q: "How is Taro different from other hosting platforms?",
@@ -26,7 +26,7 @@ const FAQS = [
   },
   {
     q: "What AI models are supported?",
-    a: "All of them. Both OpenClaw and Hermes work with OpenAI, Anthropic, Google, OpenRouter, and any OpenAI-compatible endpoint. Switch models anytime from your dashboard settings.",
+    a: "All of them. OpenClaw works with OpenAI, Anthropic, Google, OpenRouter, and any OpenAI-compatible endpoint. Switch models anytime from your dashboard settings.",
   },
 {
     q: "What integrations are available?",

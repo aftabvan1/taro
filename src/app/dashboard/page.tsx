@@ -530,14 +530,12 @@ export default function DashboardOverview() {
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedFramework("hermes")}
-                className={cn(
-                  "rounded-lg border p-3 text-left transition-all",
-                  selectedFramework === "hermes"
-                    ? "border-emerald-500/40 bg-emerald-500/[0.08] shadow-[0_0_10px_rgba(16,185,129,0.1)]"
-                    : "border-zinc-800 bg-black/30 hover:border-zinc-700"
-                )}
+                disabled
+                className="relative rounded-lg border border-zinc-800 bg-black/30 p-3 text-left opacity-50 cursor-not-allowed"
               >
+                <span className="absolute top-1.5 right-1.5 rounded-full bg-amber-500/20 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-amber-400">
+                  Soon
+                </span>
                 <p className="font-mono text-xs font-bold text-zinc-200">Hermes Agent</p>
                 <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
                   Self-improving · persistent memory

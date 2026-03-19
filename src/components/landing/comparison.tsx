@@ -11,7 +11,7 @@ const STEPS = [
     icon: Rocket,
     title: "Pick your framework",
     description:
-      "OpenClaw for multi-channel messaging (Telegram, Discord, Slack, WhatsApp). Hermes for self-improving agents with persistent memory. Both deploy in 30 seconds.",
+      "Deploy OpenClaw for multi-channel messaging (Telegram, Discord, Slack, WhatsApp) in 30 seconds. Hermes support for self-improving agents coming soon.",
   },
   {
     number: "02",

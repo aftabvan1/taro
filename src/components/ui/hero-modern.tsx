@@ -93,7 +93,7 @@ function HeroOrbitDeck() {
               <circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.6" />
               <circle cx="12" cy="12" r="3" fill="currentColor" />
             </svg>
-            OpenClaw + Hermes — the only platform that runs both
+            OpenClaw now · Hermes coming soon
           </span>
 
           <h1 className="mt-8 font-[family-name:var(--font-fredoka)] text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
@@ -102,9 +102,9 @@ function HeroOrbitDeck() {
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-foreground/50 md:text-lg">
-            Deploy OpenClaw or Hermes in 30 seconds. Connect 850+ tools,
-            monitor everything from one dashboard, and never touch a server.
-            From $14/mo.
+            Deploy OpenClaw in 30 seconds. Hermes support coming soon.
+            Connect 850+ tools, monitor everything from one dashboard,
+            and never touch a server. From $14/mo.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -157,7 +157,7 @@ function HeroOrbitDeck() {
                 <span>taro deploy</span>
               </div>
               <div className="mt-1 text-foreground/50">
-                &nbsp; ? Choose framework: <span className="text-brand">OpenClaw</span> / Hermes
+                &nbsp; ? Choose framework: <span className="text-brand">OpenClaw</span> / <span className="text-foreground/25">Hermes (soon)</span>
               </div>
               <div className="text-foreground/35">
                 &nbsp; → Deploying OpenClaw v2026.3...

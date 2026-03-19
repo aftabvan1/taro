@@ -39,8 +39,8 @@ export const ProblemSolution = () => {
             <span className="text-gradient">Now who runs it?</span>
           </h2>
           <p className="mt-4 text-muted">
-            OpenClaw for 20+ messaging channels. Hermes for self-improving
-            memory. Either way — you need infrastructure. We handle all of it.
+            OpenClaw for 20+ messaging channels today. Hermes for self-improving
+            memory coming soon. Either way — you need infrastructure. We handle all of it.
           </p>
         </motion.div>
 

@@ -35,19 +35,25 @@ const FRAMEWORK_CONFIGS = {
     needsMcporter: true,
     needsComposio: true,
     syncDaemonScript: "openclaw-sync.mjs",
+    command: "",
     readOnly: true,
     useSeccomp: true,
     runAsUser: 1000,
   },
   hermes: {
-    image: "ghcr.io/outsourc-e/hermes-agent:webapi",
+    image: "hermes-agent:webapi",
     internalPort: 8642,
     containerSuffix: "hermes",
     configDir: "hermes-config",
     dataDir: "hermes",
     configMountPath: "/root/.hermes",
     extraVolumes: [] as { host: string; container: string }[],
-    env: {} as Record<string, string>,
+    env: {
+      API_SERVER_ENABLED: "true",
+      API_SERVER_HOST: "0.0.0.0",
+      GATEWAY_ALLOW_ALL_USERS: "true",
+    } as Record<string, string>,
+    command: "python -m gateway.run",
     healthcheck: "wget -qO- http://127.0.0.1:8642/health || exit 1",
     needsDevicePairing: false,
     needsMcporter: false,
@@ -328,11 +334,12 @@ SECCOMPEOF`
   // Write docker-compose.yml — bridge networking with explicit port mapping
   // Each container gets its own isolated network; only necessary ports are exposed on 127.0.0.1
   // 2 CPUs + 4GB mem (+ 1GB swap) + security hardening; 120s healthcheck start_period for startup
+  const commandLine = fw.command ? `\n    command: ${fw.command}` : "";
   const compose = `
 services:
   ${fw.containerSuffix}:
     image: ${fw.image}
-    container_name: ${containerName}-${fw.containerSuffix}
+    container_name: ${containerName}-${fw.containerSuffix}${commandLine}
     ports:
       - "127.0.0.1:${ports.agent}:${fw.internalPort}"
     volumes:

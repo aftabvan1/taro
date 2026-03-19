@@ -22,7 +22,7 @@ export const FeaturesGrid = () => {
             <span className="text-gradient">Zero ops.</span>
           </h2>
           <p className="mt-4 text-muted">
-            OpenClaw and Hermes get the same first-class treatment — deploy, connect, monitor, and control from one dashboard.
+            Deploy OpenClaw today, Hermes soon — both get first-class treatment. Deploy, connect, monitor, and control from one dashboard.
           </p>
         </motion.div>
 

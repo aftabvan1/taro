@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git curl wget && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 https://github.com/NousResearch/hermes-agent.git .
+
+RUN pip install --no-cache-dir -e .
+
+EXPOSE 8642
+
+# Run the gateway directly (not via systemd). API server is enabled via
+# API_SERVER_ENABLED=true + API_SERVER_HOST=0.0.0.0 env vars at runtime.
+CMD ["python", "-m", "gateway.run"]

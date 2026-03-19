@@ -236,16 +236,16 @@ export const MissionControl = () => {
           className="order-1 lg:order-2"
         >
           <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Hermes remembers everything.<br />
-            <span className="text-muted">But do you know what it&apos;s doing right now?</span>
+            Your agent runs 24/7.<br />
+            <span className="text-muted">Do you know what it&apos;s doing right now?</span>
           </h3>
           <p className="mt-4 max-w-md leading-relaxed text-muted">
-            Self-improving agents are powerful — and unpredictable. Mission Control
-            shows you every task, every decision, every skill your agent creates — so
+            Always-on agents are powerful — and unpredictable. Mission Control
+            shows you every task, every decision, every action your agent takes — so
             you&apos;re always in the loop, not just hoping it&apos;s doing the right thing.
           </p>
           <p className="mt-3 max-w-md text-sm font-medium text-brand">
-            Same dashboard whether you run OpenClaw or Hermes. Switch frameworks, keep your workflow.
+            One dashboard for OpenClaw today. Hermes coming soon — same workflow, same controls.
           </p>
           <ul className="mt-6 space-y-3">
             {[
