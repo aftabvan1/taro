@@ -35,6 +35,9 @@ const FRAMEWORK_CONFIGS = {
     needsMcporter: true,
     needsComposio: true,
     syncDaemonScript: "openclaw-sync.mjs",
+    readOnly: true,
+    useSeccomp: true,
+    runAsUser: 1000,
   },
   hermes: {
     image: "ghcr.io/outsourc-e/hermes-agent:webapi",
@@ -45,11 +48,14 @@ const FRAMEWORK_CONFIGS = {
     configMountPath: "/root/.hermes",
     extraVolumes: [] as { host: string; container: string }[],
     env: {} as Record<string, string>,
-    healthcheck: "curl -sf http://127.0.0.1:8642/health || exit 1",
+    healthcheck: "wget -qO- http://127.0.0.1:8642/health || exit 1",
     needsDevicePairing: false,
     needsMcporter: false,
     needsComposio: false,
     syncDaemonScript: "hermes-sync.mjs",
+    readOnly: false,
+    useSeccomp: false,
+    runAsUser: 0,
   },
 } as const;
 
@@ -231,21 +237,25 @@ export const provisionInstance = async (
     }
   }
   await conn.execCommand(`mkdir -p ${mkdirParts.join(" ")}`);
-  await conn.execCommand(`chown -R 1000:1000 ${mkdirParts.join(" ")}`);
+  if (fw.runAsUser !== 0) {
+    await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${mkdirParts.join(" ")}`);
+  }
 
-  // Deploy seccomp profile for container security (only if not already present)
-  await conn.execCommand(`mkdir -p /opt/taro/seccomp`);
-  const seccompCheck = await conn.execCommand(`test -f /opt/taro/seccomp/openclaw-seccomp.json && echo exists`);
-  if (seccompCheck.stdout.trim() !== "exists") {
-    const fs = await import("fs");
-    const path = await import("path");
-    const seccompPath = path.join(process.cwd(), "docker/scripts/openclaw-seccomp.json");
-    const seccompProfile = fs.readFileSync(seccompPath, "utf-8");
-    await conn.execCommand(
-      `cat > /opt/taro/seccomp/openclaw-seccomp.json << 'SECCOMPEOF'
+  // Deploy seccomp profile for container security (only for frameworks that use it)
+  if (fw.useSeccomp) {
+    await conn.execCommand(`mkdir -p /opt/taro/seccomp`);
+    const seccompCheck = await conn.execCommand(`test -f /opt/taro/seccomp/openclaw-seccomp.json && echo exists`);
+    if (seccompCheck.stdout.trim() !== "exists") {
+      const fs = await import("fs");
+      const path = await import("path");
+      const seccompPath = path.join(process.cwd(), "docker/scripts/openclaw-seccomp.json");
+      const seccompProfile = fs.readFileSync(seccompPath, "utf-8");
+      await conn.execCommand(
+        `cat > /opt/taro/seccomp/openclaw-seccomp.json << 'SECCOMPEOF'
 ${seccompProfile}
 SECCOMPEOF`
-    );
+      );
+    }
   }
 
   // Write framework-specific config
@@ -291,7 +301,9 @@ SECCOMPEOF`
       `cat > ${instanceDir}/data/${fw.configDir}/config.json << 'CONFIGEOF'\n${hermesConfig}\nCONFIGEOF`
     );
   }
-  await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/${fw.configDir}`);
+  if (fw.runAsUser !== 0) {
+    await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${instanceDir}/data/${fw.configDir}`);
+  }
 
   // Generate per-instance terminal token for ttyd auth
   const terminalToken = randomBytes(32).toString("hex");
@@ -303,8 +315,15 @@ SECCOMPEOF`
     ...fw.extraVolumes.map(v => `./${v.host}:${v.container}`),
   ];
 
-  // Build environment variables
-  const envLines = Object.entries(fw.env).map(([k, v]) => `      - ${k}=${v}`).join("\n");
+  // Build environment variables — omit the block entirely if empty (empty `environment:` is invalid YAML)
+  const envEntries = Object.entries(fw.env);
+  const envBlock = envEntries.length > 0
+    ? `    environment:\n${envEntries.map(([k, v]) => `      - ${k}=${v}`).join("\n")}`
+    : "";
+
+  // Build security options
+  const securityOpts = ["no-new-privileges:true"];
+  if (fw.useSeccomp) securityOpts.push("seccomp=/opt/taro/seccomp/openclaw-seccomp.json");
 
   // Write docker-compose.yml — bridge networking with explicit port mapping
   // Each container gets its own isolated network; only necessary ports are exposed on 127.0.0.1
@@ -318,22 +337,20 @@ services:
       - "127.0.0.1:${ports.agent}:${fw.internalPort}"
     volumes:
 ${volumes.map(v => `      - ${v}`).join("\n")}
-    environment:
-${envLines}
+${envBlock}
     restart: unless-stopped
     mem_limit: 4g
     memswap_limit: 6g
     mem_swappiness: 60
     cpus: 2
     pids_limit: 256
-    oom_score_adj: -200
+    oom_score_adj: -200${fw.readOnly ? `
     read_only: true
     tmpfs:
       - /tmp:size=256m,nosuid,nodev
-      - /run:size=64m,noexec,nosuid,nodev
+      - /run:size=64m,noexec,nosuid,nodev` : ""}
     security_opt:
-      - no-new-privileges:true
-      - seccomp=/opt/taro/seccomp/openclaw-seccomp.json
+${securityOpts.map(o => `      - ${o}`).join("\n")}
     cap_drop:
       - ALL
     cap_add:
@@ -352,8 +369,11 @@ ${compose}
 COMPOSEEOF`
   );
 
-  // Start the stack
-  await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+  // Start the stack — check exit code so failures don't go silent
+  const composeUp = await conn.execCommand(`cd ${instanceDir} && docker compose up -d 2>&1`);
+  if (composeUp.code !== 0) {
+    throw new Error(`docker compose up failed: ${composeUp.stdout} ${composeUp.stderr}`.trim());
+  }
 
   // OpenClaw-only post-startup steps
   if (fw.needsMcporter) {
@@ -530,7 +550,9 @@ export const reprovisionInstance = async (
   if (fw.extraVolumes.length > 0) {
     const extraDirs = fw.extraVolumes.map(v => `${instanceDir}/${v.host}`).join(" ");
     await conn.execCommand(`mkdir -p ${extraDirs}`);
-    await conn.execCommand(`chown -R 1000:1000 ${extraDirs}`);
+    if (fw.runAsUser !== 0) {
+      await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${extraDirs}`);
+    }
   }
 
   // Build volume mounts
@@ -627,7 +649,9 @@ COMPOSEEOF`
       await conn.execCommand(
         `cat > ${instanceDir}/data/${fw.configDir}/openclaw.json << 'CONFIGEOF'\n${updatedConfig}\nCONFIGEOF`
       );
-      await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/${fw.configDir}`);
+      if (fw.runAsUser !== 0) {
+        await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${instanceDir}/data/${fw.configDir}`);
+      }
     }
   } else if (agentFramework === "hermes") {
     // Rewrite Hermes config with latest LLM settings from DB
@@ -643,7 +667,9 @@ COMPOSEEOF`
     await conn.execCommand(
       `cat > ${instanceDir}/data/${fw.configDir}/config.json << 'CONFIGEOF'\n${hermesConfig}\nCONFIGEOF`
     );
-    await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/${fw.configDir}`);
+    if (fw.runAsUser !== 0) {
+      await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${instanceDir}/data/${fw.configDir}`);
+    }
   }
 
   // Stop old ttyd container if it exists, then remove it
