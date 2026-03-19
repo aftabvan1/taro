@@ -1,8 +1,10 @@
 # Taro
 
-**Managed OpenClaw Hosting with Mission Control**
+**Managed AI agent hosting with a built-in Mission Control dashboard.**
 
-Deploy your own AI agent instance in 30 seconds. Get the container AND the cockpit — not just a terminal.
+Deploy OpenClaw or Hermes AI agents in under 30 seconds. Get the container AND the cockpit — agent management, task boards, activity feeds, web terminal, backups, and monitoring all in one platform.
+
+> **Live at:** [taroagent.com](https://taroagent.com)
 
 ---
 
@@ -13,7 +15,7 @@ Deploy your own AI agent instance in 30 seconds. Get the container AND the cockp
 - [Architecture](#architecture)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
-- [Scripts](#scripts)
+- [Commands](#commands)
 - [Project Structure](#project-structure)
 - [Database Schema](#database-schema)
 - [API Reference](#api-reference)
@@ -28,22 +30,21 @@ Deploy your own AI agent instance in 30 seconds. Get the container AND the cockp
 
 ## What is Taro?
 
-Taro is the only managed OpenClaw hosting platform with a built-in Mission Control dashboard. While competitors give you a container and a terminal, Taro gives you:
+Taro is the only managed AI agent hosting platform with a built-in Mission Control dashboard. While competitors give you a container and a terminal, Taro gives you:
 
-- **OpenClaw Instance** — AI agent runtime in an isolated Docker container
+- **Dual framework support** — deploy [OpenClaw](https://github.com/open-claw/openclaw) or [Hermes](https://github.com/outsourc-e/hermes-agent) agents
 - **Mission Control** — agent management, kanban task boards, approval workflows, activity timelines
-- **Web Terminal** — browser-based terminal access via xterm.js + ttyd
+- **Web Terminal** — browser-based terminal access via xterm.js + ttyd, no SSH keys needed
 - **Automated Backups** — scheduled backup and one-click restore
 - **Resource Monitoring** — real-time CPU, memory, and network stats
-- **Integrations** — 850+ tool integrations via Composio
+- **850+ Integrations** — GitHub, Slack, Gmail, Notion via Composio
 
-### Pricing Tiers
+### Pricing
 
 | Plan | Price | Resources | Key Features |
 |------|-------|-----------|--------------|
-| Hobby | $5/mo | 1 vCPU, 2GB RAM | Terminal, daily backups, agent overview, task boards |
-| Pro | $14/mo | 2 vCPU, 4GB RAM | + Monitoring, hourly backups, activity timeline, approvals |
-| Teams | $49/mo | 4 vCPU, 8GB RAM | + Continuous backups, SSO, audit logs, org management |
+| **Pro** | $14/mo | 2 vCPU, 4GB RAM | Terminal, backups, full Mission Control, monitoring, 850+ integrations |
+| **Teams** | $49/seat/mo | 4 vCPU, 8GB RAM | Everything in Pro + SSO, audit logs, org management, SLA |
 
 ---
 
@@ -90,14 +91,14 @@ Taro is the only managed OpenClaw hosting platform with a built-in Mission Contr
           ┌─────────────────┐     ┌──────────────────┐  ┌──────────────┐
           │  Neon PostgreSQL │     │  Stripe          │  │  Hetzner     │
           │                 │     │  (Billing)       │  │  Server      │
-          │  - users        │     └──────────────────┘  │  178.x.x.x  │
-          │  - instances    │                           │              │
-          │  - backups      │          SSH tunnel       │  Per-user:   │
-          │  - mc_agents    │  ◄────────────────────►   │  ┌────────┐ │
-          │  - mc_boards    │                           │  │OpenClaw│ │
-          │  - mc_tasks     │                           │  │ttyd    │ │
-          │  - mc_activity  │                           │  │Postgres│ │
-          │  - mc_approvals │                           │  │Sync    │ │
+          │  - users        │     └──────────────────┘  │              │
+          │  - instances    │                           │  Per-user:   │
+          │  - backups      │          SSH tunnel       │  ┌────────┐ │
+          │  - mc_agents    │  ◄────────────────────►   │  │OpenClaw│ │
+          │  - mc_boards    │                           │  │or      │ │
+          │  - mc_tasks     │                           │  │Hermes  │ │
+          │  - mc_activity  │                           │  │+ ttyd  │ │
+          │  - mc_approvals │                           │  │+ sync  │ │
           └─────────────────┘                           │  └────────┘ │
                                                         │  Caddy proxy│
                                                         └──────────────┘
@@ -107,9 +108,9 @@ Taro is the only managed OpenClaw hosting platform with a built-in Mission Contr
 
 1. **Vercel** hosts the Next.js app (frontend + API routes)
 2. **Neon PostgreSQL** stores all platform data (users, instances, Mission Control state)
-3. **Hetzner Server** runs user containers (OpenClaw + ttyd + Postgres per instance)
-4. **Caddy** reverse proxies `*.instances.taro.sh` to the right container with automatic HTTPS
-5. **Sync Daemon** (Node.js on Hetzner) bridges OpenClaw ↔ Neon DB for Mission Control features
+3. **Hetzner Server** runs user containers (OpenClaw or Hermes + ttyd per instance)
+4. **Caddy** reverse proxies `*.instances.taroagent.com` to the right container with automatic HTTPS via Cloudflare DNS
+5. **Sync Daemon** (Node.js on Hetzner) bridges agent ↔ Neon DB for Mission Control features
 6. API routes SSH into Hetzner to provision/manage containers and communicate with sync daemons
 
 ---
@@ -121,7 +122,7 @@ Taro is the only managed OpenClaw hosting platform with a built-in Mission Contr
 - **Node.js 20+** and **npm**
 - A [Neon](https://neon.tech) PostgreSQL database (free tier works for dev)
 - A [Stripe](https://stripe.com) account with a subscription product created
-- A [Hetzner Cloud](https://console.hetzner.cloud) server (CPX11 ~$5.59/mo minimum)
+- A [Hetzner Cloud](https://console.hetzner.cloud) server (CPX11 minimum for dev)
 - A [Resend](https://resend.com) account for transactional email
 - (Optional) A [Composio](https://composio.dev) API key for integrations
 
@@ -135,11 +136,11 @@ cd taro
 # 2. Install dependencies
 npm install
 
-# 3. Copy env file and fill in your credentials (see Environment Variables below)
-cp .env.example .env
+# 3. Copy env file and fill in your credentials
+cp .env.example .env.local
+# Edit .env.local — see Environment Variables below
 
-# 4. Generate and run database migrations
-npm run db:generate
+# 4. Run database migrations
 npm run db:migrate
 
 # 5. Start the dev server
@@ -156,15 +157,10 @@ Bootstrap the Hetzner server with Docker, Caddy, and firewall rules:
 ssh root@YOUR_SERVER_IP 'bash -s' < scripts/setup-server.sh
 ```
 
-This installs:
-- Docker Engine + Compose v2
-- Caddy (reverse proxy with automatic HTTPS)
-- UFW firewall (ports 22, 80, 443 only)
-- Directory structure at `/opt/taro/instances/` and `/opt/taro/backups/`
+This installs Docker Engine, Caddy (reverse proxy), UFW firewall (ports 22, 80, 443 only), and creates `/opt/taro/instances/` and `/opt/taro/backups/`.
 
 After running, set the `CLOUDFLARE_API_TOKEN` on the server for wildcard TLS:
 ```bash
-# On the Hetzner server:
 echo "CLOUDFLARE_API_TOKEN=your_token_here" > /etc/caddy/environment
 systemctl restart caddy
 ```
@@ -173,34 +169,34 @@ systemctl restart caddy
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in these values:
+Copy `.env.example` to `.env.local` and fill in:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | Neon PostgreSQL connection string |
 | `SYNC_DATABASE_URL` | No | Restricted-role DB URL for sync daemons (falls back to DATABASE_URL) |
-| `JWT_SECRET` | Yes | Random 64-char hex string for JWT signing. Generate with: `openssl rand -hex 32` |
-| `HETZNER_API_TOKEN` | Yes | Hetzner Cloud API token (from console) |
-| `HETZNER_SERVER_IP` | Yes | IP address of your Hetzner server |
-| `HETZNER_SSH_PRIVATE_KEY` | Yes | SSH private key for server access (paste the full key) |
-| `INSTANCE_DOMAIN` | Yes | Domain for instance subdomains (e.g., `instances.taro.sh`) |
-| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (`sk_test_...` for dev) |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret (`whsec_...`) |
-| `STRIPE_PRICE_ID` | Yes | Stripe Price ID for the subscription product |
+| `JWT_SECRET` | Yes | Random string for JWT signing. Generate: `openssl rand -hex 32` |
+| `HETZNER_SERVER_IP` | For provisioning | IP address of your Hetzner server |
+| `HETZNER_SSH_PRIVATE_KEY` | For provisioning | SSH private key for server access |
+| `INSTANCE_DOMAIN` | Yes | Domain for instance subdomains (e.g., `instances.taroagent.com`) |
+| `NEXT_PUBLIC_INSTANCE_DOMAIN` | Yes | Same as above (client-side) |
+| `STRIPE_SECRET_KEY` | For billing | Stripe secret key (`sk_test_...` for dev) |
+| `STRIPE_WEBHOOK_SECRET` | For billing | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_PRICE_ID` | For billing | Stripe Price ID for the Pro subscription |
 | `STRIPE_PORTAL_CONFIG_ID` | No | Stripe billing portal configuration ID |
-| `RESEND_API_KEY` | Yes | Resend API key for email |
-| `FROM_EMAIL` | Yes | Sender email address (e.g., `Taro <noreply@taro.sh>`) |
-| `COMPOSIO_API_KEY` | No | Composio API key for third-party integrations |
+| `RESEND_API_KEY` | For emails | Resend API key |
+| `FROM_EMAIL` | For emails | Sender email (e.g., `Taro <noreply@taroagent.com>`) |
+| `COMPOSIO_API_KEY` | No | Composio API key for integrations |
+| `COMPOSIO_CONSUMER_KEY` | No | Composio consumer key for agent plugins |
 | `NEXT_PUBLIC_APP_URL` | Yes | App URL (`http://localhost:3000` for dev) |
-| `NEXT_PUBLIC_INSTANCE_DOMAIN` | Yes | Instance domain (public, same as INSTANCE_DOMAIN) |
 
 ---
 
-## Scripts
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server on :3000 |
+| `npm run dev` | Start dev server on :3000 |
 | `npm run build` | Production build |
 | `npm run start` | Run production server |
 | `npm run lint` | Run ESLint |
@@ -214,188 +210,66 @@ Copy `.env.example` to `.env` and fill in these values:
 
 ```
 taro/
-├── .env.example                    # Environment variable template
-├── package.json                    # Dependencies and scripts
-├── next.config.ts                  # Next.js config (security headers, CSP)
-├── tsconfig.json                   # TypeScript config (strict, @/ alias)
-├── drizzle.config.ts               # Drizzle ORM config
-├── middleware.ts                   # Global auth middleware (JWT on /api/*)
-├── postcss.config.mjs              # PostCSS config
-├── eslint.config.mjs               # ESLint config
-│
-├── public/                         # Static assets
-│   ├── logo.svg
-│   └── og-image.png
-│
-├── scripts/
-│   └── setup-server.sh             # Hetzner server bootstrap script
-│
-├── docker/
-│   └── scripts/
-│       └── openclaw-sync.mjs       # Sync daemon (bridges OpenClaw ↔ Neon DB)
-│
-├── drizzle/
-│   └── migrations/                 # Auto-generated SQL migrations
-│
-└── src/
-    ├── app/
-    │   ├── layout.tsx              # Root layout (fonts, providers, metadata)
-    │   ├── page.tsx                # Landing page
-    │   ├── login/page.tsx          # Login page
-    │   ├── signup/page.tsx         # Signup page
-    │   ├── forgot-password/page.tsx
-    │   ├── reset-password/page.tsx
-    │   │
-    │   ├── dashboard/              # Dashboard (auth-gated)
-    │   │   ├── layout.tsx          # Sidebar + top bar + auth guard + context
-    │   │   ├── page.tsx            # Overview (stats, activity, quick actions)
-    │   │   ├── terminal/page.tsx   # Web terminal (xterm.js iframe)
-    │   │   ├── agents/page.tsx     # Agent list & management
-    │   │   ├── agents/[id]/page.tsx # Agent detail view
-    │   │   ├── boards/page.tsx     # Kanban task boards (drag & drop)
-    │   │   ├── board-groups/page.tsx
-    │   │   ├── tags/page.tsx       # Tag management
-    │   │   ├── custom-fields/page.tsx
-    │   │   ├── activity/page.tsx   # Activity timeline
-    │   │   ├── live-feed/page.tsx  # Live activity feed
-    │   │   ├── backups/page.tsx    # Backup management
-    │   │   ├── monitoring/page.tsx # Resource charts
-    │   │   ├── integrations/page.tsx # Composio integrations
-    │   │   ├── settings/page.tsx   # Instance settings
-    │   │   └── billing/page.tsx    # Subscription & billing
-    │   │
-    │   └── api/
-    │       ├── auth/               # Authentication
-    │       │   ├── register/route.ts
-    │       │   ├── login/route.ts
-    │       │   ├── refresh/route.ts
-    │       │   ├── forgot-password/route.ts
-    │       │   └── reset-password/route.ts
-    │       │
-    │       ├── instances/          # Instance CRUD & lifecycle
-    │       │   ├── route.ts        # GET list, POST create
-    │       │   └── [id]/
-    │       │       ├── route.ts    # GET, PATCH, DELETE
-    │       │       ├── start/route.ts
-    │       │       ├── stop/route.ts
-    │       │       ├── restart/route.ts
-    │       │       ├── reprovision/route.ts
-    │       │       ├── stats/route.ts
-    │       │       ├── diagnose/route.ts
-    │       │       ├── seed/route.ts
-    │       │       ├── deploy-sync/route.ts
-    │       │       └── update-sync/route.ts
-    │       │
-    │       ├── mission-control/    # Mission Control API
-    │       │   ├── agents/route.ts
-    │       │   ├── agents/[id]/route.ts
-    │       │   ├── boards/route.ts
-    │       │   ├── boards/[id]/route.ts
-    │       │   ├── boards/[id]/tasks/route.ts
-    │       │   ├── board-groups/route.ts
-    │       │   ├── board-groups/[id]/route.ts
-    │       │   ├── tasks/[id]/route.ts
-    │       │   ├── tasks/[id]/dispatch/route.ts
-    │       │   ├── tasks/[id]/tags/route.ts
-    │       │   ├── tags/route.ts
-    │       │   ├── tags/[id]/route.ts
-    │       │   ├── custom-fields/route.ts
-    │       │   ├── custom-fields/[id]/route.ts
-    │       │   ├── activity/route.ts
-    │       │   ├── dashboard/route.ts
-    │       │   ├── openclaw/status/route.ts
-    │       │   ├── openclaw/sessions/route.ts
-    │       │   ├── openclaw/sessions/[sessionId]/route.ts
-    │       │   ├── openclaw/chat/route.ts
-    │       │   └── openclaw/mc-context/route.ts
-    │       │
-    │       ├── backups/route.ts
-    │       ├── backups/[id]/restore/route.ts
-    │       ├── billing/route.ts
-    │       ├── activity/route.ts
-    │       ├── integrations/route.ts
-    │       ├── integrations/connected/route.ts
-    │       ├── account/change-password/route.ts
-    │       ├── account/delete/route.ts
-    │       └── webhooks/stripe/route.ts
-    │
-    ├── components/
-    │   ├── landing/                # Landing page sections
-    │   │   ├── hero.tsx
-    │   │   ├── navbar.tsx
-    │   │   ├── pricing.tsx
-    │   │   ├── features-grid.tsx
-    │   │   ├── mission-control.tsx
-    │   │   ├── integrations.tsx
-    │   │   ├── problem-solution.tsx
-    │   │   ├── terminal-demo.tsx
-    │   │   ├── testimonials.tsx
-    │   │   ├── cta-section.tsx
-    │   │   ├── footer.tsx
-    │   │   └── logos.tsx
-    │   │
-    │   ├── dashboard/
-    │   │   ├── sidebar.tsx         # Navigation sidebar
-    │   │   └── connection-status.tsx
-    │   │
-    │   ├── boards/                 # Kanban board components
-    │   │   ├── droppable-column.tsx
-    │   │   ├── draggable-task-card.tsx
-    │   │   └── task-detail-modal.tsx
-    │   │
-    │   ├── ui/                     # UI primitives
-    │   │   ├── button.tsx
-    │   │   ├── section.tsx
-    │   │   ├── hero-modern.tsx
-    │   │   ├── boba-background.tsx
-    │   │   ├── card-with-lines-pattern.tsx
-    │   │   └── icon-map.tsx
-    │   │
-    │   ├── shared/
-    │   │   ├── logo.tsx
-    │   │   └── taro-mascot.tsx
-    │   │
-    │   └── providers.tsx           # Theme provider (next-themes)
-    │
-    └── lib/
-        ├── db/
-        │   ├── schema.ts           # Drizzle schema (all tables)
-        │   ├── index.ts            # Database connection
-        │   └── migrations/
-        │
-        ├── middleware/
-        │   └── auth.ts             # authenticate() helper for API routes
-        │
-        ├── mission-control/
-        │   └── validation.ts       # Zod schemas for MC entities
-        │
-        ├── auth.ts                 # JWT sign/verify, password hash/verify
-        ├── provisioner.ts          # Docker provisioning engine (~610 lines)
-        ├── ssh-exec.ts             # SSH tunnel to sync daemon
-        ├── hetzner.ts              # Hetzner Cloud API client
-        ├── stripe.ts               # Stripe helpers (checkout, portal)
-        ├── backup.ts               # Backup engine (tar + Docker)
-        ├── activity.ts             # Activity logging to DB
-        ├── email.ts                # Transactional email (Resend)
-        ├── logger.ts               # Sanitized logging (redacts secrets)
-        ├── rate-limit.ts           # In-memory sliding window rate limiter
-        ├── shell-sanitize.ts       # Shell injection prevention
-        ├── constants.ts            # Plans, features, nav links, testimonials
-        ├── status-config.ts        # Instance/agent status styling
-        ├── format.ts               # Date, byte, time formatters
-        ├── animation-variants.ts   # Framer Motion variants
-        └── utils.ts                # cn() class merge utility
+├── src/
+│   ├── app/
+│   │   ├── page.tsx                    # Landing page
+│   │   ├── login/ signup/              # Auth pages
+│   │   ├── dashboard/
+│   │   │   ├── layout.tsx              # Auth guard + sidebar + instance context
+│   │   │   ├── page.tsx                # Dashboard overview
+│   │   │   ├── agents/                 # Agent management (MC)
+│   │   │   ├── boards/                 # Kanban task boards (MC)
+│   │   │   ├── live-feed/              # Real-time activity feed (MC)
+│   │   │   ├── terminal/               # Web terminal (xterm.js + ttyd)
+│   │   │   ├── integrations/           # Composio integrations
+│   │   │   ├── guides/                 # Getting started guides
+│   │   │   ├── backups/                # Backup management
+│   │   │   ├── monitoring/             # Resource stats (CPU/RAM/network)
+│   │   │   ├── settings/               # Instance config, LLM provider, danger zone
+│   │   │   └── billing/                # Stripe subscription management
+│   │   └── api/
+│   │       ├── auth/                   # Login, register, JWT refresh, password reset
+│   │       ├── instances/              # CRUD + start/stop/restart/reprovision
+│   │       ├── mission-control/        # Agents, boards, tasks, activity, agent chat
+│   │       ├── backups/                # Backup create/restore
+│   │       ├── billing/                # Stripe checkout/portal
+│   │       └── webhooks/stripe/        # Stripe webhook handler
+│   ├── components/
+│   │   ├── landing/                    # Hero, pricing, features, comparison, etc.
+│   │   ├── dashboard/                  # Sidebar, connection status
+│   │   ├── boards/                     # Kanban board (drag-and-drop)
+│   │   ├── ui/                         # UI primitives (button, section, backgrounds)
+│   │   └── shared/                     # Logo, mascot
+│   └── lib/
+│       ├── db/schema.ts                # Drizzle schema (all tables)
+│       ├── provisioner.ts              # Docker container lifecycle via SSH
+│       ├── env.ts                      # Centralized env var validation
+│       ├── stripe.ts                   # Stripe helpers (checkout, portal)
+│       ├── rate-limit.ts               # Async rate limiting middleware
+│       ├── backup.ts                   # Backup logic (tar + Hetzner S3)
+│       ├── shell-sanitize.ts           # Shell injection prevention
+│       ├── middleware/auth.ts          # JWT auth middleware
+│       ├── auth.ts                     # JWT sign/verify, password hash
+│       ├── ssh-exec.ts                 # SSH tunnel to sync daemon
+│       ├── logger.ts                   # Sanitized logging (redacts secrets)
+│       └── constants.ts               # Plans, features, nav links
+├── docker/scripts/
+│   ├── openclaw-sync.mjs              # OpenClaw sync daemon
+│   ├── hermes-sync.mjs                # Hermes sync daemon
+│   └── openclaw-seccomp.json          # Container seccomp profile
+└── drizzle/migrations/                 # Auto-generated SQL migrations
 ```
 
 ---
 
 ## Database Schema
 
-All tables live in Neon PostgreSQL, managed via Drizzle ORM.
+All tables live in Neon PostgreSQL, managed via Drizzle ORM (`src/lib/db/schema.ts`).
 
 ### Core Tables
 
 **`users`** — Platform accounts
+
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
@@ -405,23 +279,23 @@ All tables live in Neon PostgreSQL, managed via Drizzle ORM.
 | plan | enum | `hobby` / `pro` / `teams` |
 | stripeCustomerId | text | Stripe customer ID |
 | stripeSubscriptionId | text | Stripe subscription ID |
-| failedLoginAttempts | int | For account lockout (max 5) |
+| failedLoginAttempts | int | Account lockout (max 5) |
 | lockedUntil | timestamp | Lockout expiry |
 
-**`instances`** — User OpenClaw instances
+**`instances`** — Deployed agent containers
+
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
 | userId | UUID | FK to users |
-| name | text | Instance name (DNS-safe) |
+| name | text | Instance name (DNS-safe, globally unique) |
 | status | enum | `provisioning` / `running` / `stopped` / `error` |
-| region | text | Deployment region |
-| serverIp | text | Hetzner server IP |
-| openclawPort, ttydPort, mcPort | int | Allocated ports |
+| agentFramework | enum | `openclaw` / `hermes` |
+| agentPort, ttydPort, mcPort | int | Allocated ports (unique indexes) |
 | containerName | text | Docker container name |
 | mcAuthToken | text | Auth token for sync daemon |
 | terminalToken | text | Token for ttyd access |
-| llmProvider, llmModel | text | User's chosen AI provider/model |
+| llmProvider, llmModel | text | User's chosen AI model |
 
 ### Mission Control Tables
 
@@ -430,10 +304,10 @@ All tables live in Neon PostgreSQL, managed via Drizzle ORM.
 | `mc_agents` | Agent status, role, task count, CPU/memory stats |
 | `mc_boards` | Kanban boards per instance |
 | `mc_board_groups` | Board grouping/organization |
-| `mc_tasks` | Tasks with status workflow: `inbox` > `todo` > `in_progress` > `review` > `done` |
+| `mc_tasks` | Tasks with workflow: `inbox` → `todo` → `in_progress` → `review` → `done` |
 | `mc_activity` | Activity feed entries |
-| `mc_approvals` | Approval queue: `pending` > `approved` / `denied` |
-| `mc_tags` | Tags for organizing tasks |
+| `mc_approvals` | Approval queue: `pending` → `approved` / `denied` |
+| `mc_tags` | Tags for organizing tasks (unique per instance) |
 | `mc_custom_fields` | Custom metadata fields per instance |
 
 ### Other Tables
@@ -458,14 +332,14 @@ npm run db:migrate
 
 ## API Reference
 
-All API routes require `Authorization: Bearer <token>` except auth and webhook endpoints.
+All API routes require `Authorization: Bearer <token>` except auth and webhook endpoints. All mutating routes have rate limiting.
 
 ### Authentication
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register` | Create account (rate-limited) |
-| POST | `/api/auth/login` | Login, get JWT (rate-limited, lockout after 5 failures) |
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Login, get JWT (lockout after 5 failures) |
 | POST | `/api/auth/refresh` | Refresh JWT token |
 | POST | `/api/auth/forgot-password` | Request password reset email |
 | POST | `/api/auth/reset-password` | Reset password with token |
@@ -475,17 +349,16 @@ All API routes require `Authorization: Bearer <token>` except auth and webhook e
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/instances` | List user's instances |
-| POST | `/api/instances` | Create instance (requires active subscription) |
+| POST | `/api/instances` | Create instance (requires active subscription, picks openclaw or hermes) |
 | GET | `/api/instances/:id` | Get instance details |
 | PATCH | `/api/instances/:id` | Update instance (name, LLM config) |
-| DELETE | `/api/instances/:id` | Delete instance + cleanup containers |
+| DELETE | `/api/instances/:id` | Delete instance + cleanup (rejects if still provisioning) |
 | POST | `/api/instances/:id/start` | Start stopped instance |
 | POST | `/api/instances/:id/stop` | Stop running instance |
 | POST | `/api/instances/:id/restart` | Restart instance |
-| POST | `/api/instances/:id/reprovision` | Full reprovisioning |
+| POST | `/api/instances/:id/reprovision` | Full reprovisioning with updated config |
 | GET | `/api/instances/:id/stats` | Live CPU/memory/network stats |
 | POST | `/api/instances/:id/diagnose` | Run diagnostic checks |
-| POST | `/api/instances/:id/seed` | Seed Mission Control demo data |
 | POST | `/api/instances/:id/deploy-sync` | Deploy sync daemon |
 | POST | `/api/instances/:id/update-sync` | Update sync daemon script |
 
@@ -498,23 +371,23 @@ All API routes require `Authorization: Bearer <token>` except auth and webhook e
 | GET/POST | `/api/mission-control/boards` | List / create boards |
 | GET/PUT/DELETE | `/api/mission-control/boards/:id` | Board CRUD |
 | GET | `/api/mission-control/boards/:id/tasks` | List tasks in board |
-| GET/PUT/DELETE | `/api/mission-control/tasks/:id` | Task CRUD |
+| GET/PATCH/DELETE | `/api/mission-control/tasks/:id` | Task CRUD (PATCH auto-dispatches on status change) |
 | POST | `/api/mission-control/tasks/:id/dispatch` | Dispatch task to agent |
 | GET/POST | `/api/mission-control/tags` | Tag management |
 | GET/POST | `/api/mission-control/custom-fields` | Custom field management |
-| GET | `/api/mission-control/activity` | Activity feed |
+| GET/POST | `/api/mission-control/activity` | Activity feed |
 | GET | `/api/mission-control/dashboard` | Dashboard metrics |
-| GET | `/api/mission-control/openclaw/status` | OpenClaw health check |
-| POST | `/api/mission-control/openclaw/chat` | Send message to agent |
-| GET | `/api/mission-control/openclaw/sessions` | List agent sessions |
+| GET | `/api/mission-control/agent/status` | Agent framework health check |
+| POST | `/api/mission-control/agent/chat` | Send message to agent |
+| GET | `/api/mission-control/agent/sessions` | List agent sessions |
 
 ### Billing & Backups
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/billing` | Get subscription status |
-| POST | `/api/billing` | Create checkout session or portal session |
-| GET | `/api/backups` | List backups for instance |
+| POST | `/api/billing` | Create checkout or portal session (`action: "checkout" | "portal"`) |
+| GET | `/api/backups` | List backups |
 | POST | `/api/backups` | Create backup |
 | POST | `/api/backups/:id/restore` | Restore from backup |
 
@@ -526,24 +399,51 @@ All API routes require `Authorization: Bearer <token>` except auth and webhook e
 
 The provisioning engine handles the full lifecycle of user containers on the Hetzner server via SSH:
 
-1. **Port allocation** — Each instance gets 10 consecutive ports (base 10000, stride 10). Collision-safe across concurrent provisions.
-2. **Container setup** — Writes `docker-compose.yml` with OpenClaw, ttyd, and Postgres containers. Applies resource limits (CPU, memory, PID caps).
-3. **ttyd service** — Creates a systemd service for ttyd (terminal access via `docker exec`).
-4. **Sync daemon** — Deploys the `openclaw-sync.mjs` Node.js script as a systemd service. This daemon bridges OpenClaw CLI commands with the Neon database.
-5. **Caddy config** — Adds reverse proxy entries for `{name}.instances.taro.sh` (terminal) and `mc-{name}.instances.taro.sh` (sync API).
+1. **Port allocation** — atomic `UPDATE` with `MAX(port) + 10` stride. Unique constraints prevent collisions. Retries on conflict.
+2. **Container setup** — writes `docker-compose.yml` with the chosen agent framework. Resource limits: 2 CPU, 4GB RAM, 2GB swap, 256 PIDs, seccomp profile, read-only root filesystem.
+3. **ttyd service** — systemd service for terminal access via `docker exec`.
+4. **Sync daemon** — deploys `openclaw-sync.mjs` or `hermes-sync.mjs` as a systemd service. Bridges agent CLI ↔ Neon DB.
+5. **Caddy config** — reverse proxy entries for `{name}.instances.taroagent.com` (agent) and `ttyd-{name}.instances.taroagent.com` (terminal).
+6. **Cleanup** — `deleteInstance()` nulls ports, tears down containers, systemd services, and Caddy config.
 
-### 2. Sync Daemon (`docker/scripts/openclaw-sync.mjs`)
+### 2. Agent Frameworks
 
-Runs on the Hetzner server alongside each user container. Provides an HTTP API that Taro's API routes call via SSH tunnel:
+| | OpenClaw | Hermes |
+|---|---------|--------|
+| Image | `alpine/openclaw:2026.3.13-1` | `ghcr.io/outsourc-e/hermes-agent:webapi` |
+| Internal port | 18789 | 8642 |
+| Config | `openclaw.json` (gateway auth, CORS, plugins) | `config.json` (model, provider) |
+| Sync daemon | `openclaw-sync.mjs` | `hermes-sync.mjs` |
+| Device pairing | Auto-approve timer | Not needed |
+| Composio plugin | Supported | Not supported |
 
-- Proxies chat messages to OpenClaw agent
+Both frameworks share the same provisioning pipeline, port allocation, and Mission Control integration. The `agentFramework` field on each instance determines which image, config, and sync daemon to use.
+
+### 3. Sync Daemon (`docker/scripts/`)
+
+Runs on the Hetzner server alongside each user container. Provides an HTTP API that Taro calls via SSH tunnel:
+
+- Proxies chat messages to the agent
 - Dispatches tasks and monitors completion
-- Syncs LLM provider config from Taro DB to OpenClaw config
-- Creates agents with roles via OpenClaw CLI
+- Syncs LLM config from Taro DB to agent config
+- Creates agents with roles via agent CLI
 - Resolves approval workflows
-- Builds Mission Control state summaries for context injection
+- Builds Mission Control context summaries
 
-### 3. Authentication (`src/lib/auth.ts`)
+### 4. Container Resources
+
+| Resource | Limit |
+|----------|-------|
+| CPU | 2 cores |
+| RAM | 4 GB |
+| Swap | 2 GB (6 GB total) |
+| Swappiness | 60 (pages early to avoid OOM cliff) |
+| PIDs | 256 |
+| V8 Heap | 768 MB (OpenClaw) |
+| Filesystem | Read-only root + tmpfs (`/tmp`, `/run`) |
+| Security | seccomp profile, no-new-privileges, all caps dropped except NET_BIND_SERVICE |
+
+### 5. Authentication (`src/lib/auth.ts`)
 
 Custom JWT-based auth:
 
@@ -551,28 +451,17 @@ Custom JWT-based auth:
 - **Login**: Rate-limited, account lockout after 5 failed attempts (15-min cooldown)
 - **Tokens**: JWT with 24h expiry, refresh tokens with 7d expiry
 - **Token refresh**: Dashboard auto-refreshes 5 minutes before expiry
-- **Middleware**: Global middleware in `middleware.ts` enforces auth on all `/api/*` routes except public paths
 
-### 4. Mission Control
+### 6. Security
 
-Mission Control data lives in Neon (not inside user containers). Dashboard pages query Neon directly via API routes. For operations that need to talk to OpenClaw (dispatching tasks, sending chat messages), API routes SSH into Hetzner and call the sync daemon's HTTP API.
-
-**Task dispatch flow:**
-1. User dispatches task from kanban board -> API calls sync daemon
-2. Sync daemon builds structured prompt with MC context
-3. Sync daemon runs `openclaw agent --message "..." --json`
-4. On completion, sync daemon updates task status in Neon
-5. Dashboard polls and shows updated status
-
-### 5. Security
-
-- **Container isolation**: Docker with NO_NEW_PRIVILEGES, CAP_DROP ALL
-- **Shell sanitization**: `validateShellName()` enforces DNS-safe names, `validatePort()` validates port ranges
-- **No direct container access**: All traffic goes through Caddy reverse proxy
+- **Container isolation**: Docker with `NO_NEW_PRIVILEGES`, `CAP_DROP ALL`, custom seccomp profile
+- **Shell sanitization**: `validateShellName()` + `validatePort()` prevent injection in SSH commands
+- **No direct container access**: All traffic through Caddy reverse proxy
 - **Secrets**: Sync daemon uses optional restricted DB role (`SYNC_DATABASE_URL`)
-- **Logging**: `logger.ts` automatically redacts DB URLs, API keys, SSH keys from logs
-- **CSP**: Strict Content-Security-Policy in `next.config.ts`
-- **Rate limiting**: In-memory sliding window on auth endpoints
+- **Logging**: `logger.ts` auto-redacts DB URLs, API keys, SSH keys
+- **Rate limiting**: Async in-memory sliding window on all mutating endpoints
+- **Token auth**: Terminal access requires per-instance `terminalToken`, agent access requires `mcAuthToken`
+- **Host hardening**: iptables blocks metadata service (169.254.169.254)
 
 ---
 
@@ -581,16 +470,16 @@ Mission Control data lives in Neon (not inside user containers). Dashboard pages
 | Page | Path | Description |
 |------|------|-------------|
 | Overview | `/dashboard` | Instance status, stats cards, recent activity, quick actions |
-| Terminal | `/dashboard/terminal` | Web terminal (xterm.js iframe pointing to ttyd) |
-| Agents | `/dashboard/agents` | List AI agents, create new agents with roles |
+| Terminal | `/dashboard/terminal` | Web terminal (xterm.js → ttyd) |
+| Agents | `/dashboard/agents` | List AI agents, create agents with roles |
 | Agent Detail | `/dashboard/agents/:id` | Agent stats, session history |
 | Boards | `/dashboard/boards` | Kanban task boards with drag-and-drop |
 | Board Groups | `/dashboard/board-groups` | Organize boards into groups |
-| Tags | `/dashboard/tags` | Create and manage tags |
-| Custom Fields | `/dashboard/custom-fields` | Define custom metadata fields for tasks |
-| Activity | `/dashboard/activity` | Activity timeline |
-| Live Feed | `/dashboard/live-feed` | Real-time activity updates |
-| Backups | `/dashboard/backups` | Backup list, create backup, restore |
+| Tags | `/dashboard/tags` | Create and manage task tags |
+| Custom Fields | `/dashboard/custom-fields` | Define custom metadata fields |
+| Live Feed | `/dashboard/live-feed` | Real-time activity stream |
+| Guides | `/dashboard/guides` | Getting started walkthroughs |
+| Backups | `/dashboard/backups` | Backup list, create, restore |
 | Monitoring | `/dashboard/monitoring` | CPU, memory, network charts |
 | Integrations | `/dashboard/integrations` | Browse and connect Composio integrations |
 | Settings | `/dashboard/settings` | Instance config, LLM provider, danger zone |
@@ -600,44 +489,53 @@ Mission Control data lives in Neon (not inside user containers). Dashboard pages
 
 ## Coding Conventions
 
-### General Rules
+### General
 
 - **TypeScript strict mode** — no `any` unless absolutely necessary
 - **`const` by default**, `let` only when reassignment is needed
-- **Named exports** (except page components which use default export)
-- **Absolute imports** via `@/` alias (e.g., `@/lib/utils`, `@/components/ui/button`)
-- **Arrow function components** — all components are functional
+- **Named exports** (except page components)
+- **Absolute imports** via `@/` alias (e.g., `@/lib/utils`)
+- **Arrow function components**
 
 ### Components
 
 - One component per file
-- Props interface defined above the component, named `{ComponentName}Props`
-- Use `cn()` from `@/lib/utils` for conditional class merging
-- Server Components by default; add `"use client"` only when needed
-- Framer Motion for animations (variants in `@/lib/animation-variants.ts`)
+- Props interface named `{ComponentName}Props`
+- `cn()` from `@/lib/utils` for conditional class merging
+- Server Components by default; `"use client"` only when needed
 
 ### API Routes
 
-- Validate input with Zod schemas
-- Return consistent JSON: `{ data?, error?, message? }`
-- Call `authenticate(request)` at the top of every protected route
-- Use proper HTTP status codes (200, 400, 401, 403, 404, 500)
-- Log errors via `logger.error()` (auto-redacts secrets)
+Every protected route follows this pattern:
+
+```typescript
+export async function POST(req: NextRequest) {
+  const limited = await rateLimit(req, { windowMs: 60_000, max: 10 });
+  if (limited) return limited;
+
+  const auth = authenticate(req);
+  if (!isAuthenticated(auth)) return auth;
+
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: ... }, { status: 400 });
+
+  // Business logic...
+  return NextResponse.json({ data, message });
+}
+```
 
 ### Database
 
 - Drizzle ORM only — no raw SQL
-- Migrations auto-generated via `npm run db:generate`
+- Migrations via `npm run db:generate` → `npm run db:migrate`
 - All tables have `createdAt` and `updatedAt` timestamps
-- Schema lives in `src/lib/db/schema.ts`
 
 ### Styling
 
-- **Dark-first** design — near-black background (`#0a0a0b`)
-- **Fonts**: Nunito (body), Fredoka (headings), Geist Mono (code/terminal)
-- **Brand color**: Purple (`#9B7EC8`)
-- **Accent**: Amber/bronze (`#D4A574`)
+- **Dark-first** — near-black background (`#0a0a0b`)
+- **Brand**: Purple/violet (`#8b5cf6`)
 - Glassmorphism accents on cards (`backdrop-blur-xl bg-white/5`)
+- Framer Motion for all transitions
 
 ---
 
@@ -648,22 +546,18 @@ Mission Control data lives in Neon (not inside user containers). Dashboard pages
 feat/add-skill-marketplace
 fix/terminal-reconnect
 chore/update-deps
-refactor/extract-auth-middleware
 
-# Create a feature branch
+# Workflow
 git checkout -b feat/your-feature
-
-# Make changes, commit
-git add .
-git commit -m "feat: add skill marketplace page"
-
-# Push and create PR
+# make changes
+git add <files>
+git commit -m "add skill marketplace page"
 git push -u origin feat/your-feature
-# Create PR against main
+# open PR against main
 ```
 
 - **Branch prefixes**: `feat/`, `fix/`, `chore/`, `refactor/`
-- **Commit messages**: Imperative mood, lowercase (e.g., `feat: add pricing section`)
+- **Commit messages**: imperative mood, concise
 - **PR-based workflow** — no direct pushes to `main`
 - **Squash merge** PRs
 
@@ -673,33 +567,23 @@ git push -u origin feat/your-feature
 
 ### Vercel (Frontend + API)
 
-The app is deployed on Vercel. Push to `main` triggers automatic deployment.
-
-Set all environment variables in Vercel's project settings (Settings > Environment Variables).
+Push to `main` triggers automatic deployment. Set all env vars in Vercel project settings.
 
 ### Hetzner Server (Containers)
 
 The server runs:
-- **Caddy** — reverse proxy for `*.instances.taro.sh` (automatic HTTPS)
+- **Caddy** — reverse proxy for `*.instances.taroagent.com` (auto HTTPS via Cloudflare DNS)
 - **Docker** — per-user container stacks
 - **Sync daemons** — one per instance (systemd services)
 - **ttyd services** — one per instance (systemd services)
 
-Key directories on the server:
+Key directories:
 ```
-/opt/taro/instances/{name}/     # Per-instance Docker Compose + config
-/opt/taro/backups/              # Backup storage
-/opt/taro/sync/{name}/          # Sync daemon scripts
-/etc/caddy/Caddyfile            # Caddy reverse proxy config
+/opt/taro/instances/{name}/     # Docker Compose + config per instance
+/opt/taro/backups/{name}/       # Backup storage
+/opt/taro/seccomp/              # Container seccomp profiles
+/etc/caddy/sites/               # Per-instance Caddy configs
 ```
-
-### DNS (Namecheap)
-
-| Type | Host | Value |
-|------|------|-------|
-| A | `*.instances` | Hetzner server IP |
-| A | `@` | Vercel IP |
-| CNAME | `www` | `cname.vercel-dns.com` |
 
 ---
 
@@ -707,53 +591,47 @@ Key directories on the server:
 
 ### Common Issues
 
-**"Instance stuck in provisioning"**
-- Use the diagnose endpoint: `POST /api/instances/:id/diagnose`
-- Check if the Hetzner server is reachable: `ssh root@SERVER_IP`
-- Check Docker on the server: `docker ps`
-- Check sync daemon: `systemctl status taro-sync-{name}`
+**Instance stuck in "provisioning"**
+- Diagnose: `POST /api/instances/:id/diagnose`
+- SSH check: `ssh root@SERVER_IP docker ps | grep {name}`
+- Sync daemon: `systemctl status taro-sync-{name}`
 
-**"Terminal not connecting"**
-- Verify ttyd service: `systemctl status taro-ttyd-{name}` on the server
-- Check Caddy config: `cat /etc/caddy/Caddyfile` — should have an entry for `{name}.instances.taro.sh`
+**Terminal not connecting**
+- ttyd service: `systemctl status taro-ttyd-{name}`
+- Caddy config: `cat /etc/caddy/sites/{name}.caddy`
 
-**"Mission Control data not updating"**
-- Check sync daemon logs: `journalctl -u taro-sync-{name} -f`
-- Verify OpenClaw is running: `docker ps | grep {name}`
-- Re-deploy sync daemon via dashboard or API
+**Mission Control data not updating**
+- Sync daemon logs: `journalctl -u taro-sync-{name} -f`
+- Container running: `docker ps | grep {name}`
+- Redeploy sync: use dashboard or `POST /api/instances/:id/deploy-sync`
 
-**"Database migration failed"**
-- Ensure `DATABASE_URL` is correct in `.env`
-- Run `npm run db:generate` to regenerate migration files
-- Check Drizzle Studio: `npm run db:studio`
-
-**"Stripe webhook not working"**
-- Verify `STRIPE_WEBHOOK_SECRET` matches the webhook in Stripe Dashboard
-- For local dev, use Stripe CLI: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+**Stripe webhook not working**
+- Verify `STRIPE_WEBHOOK_SECRET` matches Stripe Dashboard
+- Local dev: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
 
 ### Useful Server Commands
 
 ```bash
-# SSH into the server
 ssh root@SERVER_IP
 
-# List all running containers
+# List running containers
 docker ps
 
-# View container logs
-docker logs taro-{name}-openclaw -f
+# Container logs
+docker logs taro-{name}-openclaw -f    # or taro-{name}-hermes
 
-# Check sync daemon status/logs
+# Sync daemon
 systemctl status taro-sync-{name}
 journalctl -u taro-sync-{name} -f
 
-# Check Caddy status
+# ttyd terminal service
+systemctl status taro-ttyd-{name}
+
+# Caddy
 systemctl status caddy
+systemctl reload caddy
 
-# Reload Caddy config
-caddy reload --config /etc/caddy/Caddyfile
-
-# Check allocated ports
+# Port usage
 docker ps --format "{{.Names}}: {{.Ports}}"
 ```
 
