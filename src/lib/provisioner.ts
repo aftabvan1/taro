@@ -146,11 +146,28 @@ export const provisionInstance = async (
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
   // Create instance directory and config
-  await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config`);
+  await conn.execCommand(`mkdir -p ${instanceDir}/data/openclaw ${instanceDir}/data/openclaw-config ${instanceDir}/data/mcporter-config`);
+  await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/openclaw ${instanceDir}/data/mcporter-config`);
 
-  // Write OpenClaw config with token-based auth
+  // Deploy seccomp profile for container security (only if not already present)
+  await conn.execCommand(`mkdir -p /opt/taro/seccomp`);
+  const seccompCheck = await conn.execCommand(`test -f /opt/taro/seccomp/openclaw-seccomp.json && echo exists`);
+  if (seccompCheck.stdout.trim() !== "exists") {
+    const fs = await import("fs");
+    const path = await import("path");
+    const seccompPath = path.join(process.cwd(), "docker/scripts/openclaw-seccomp.json");
+    const seccompProfile = fs.readFileSync(seccompPath, "utf-8");
+    await conn.execCommand(
+      `cat > /opt/taro/seccomp/openclaw-seccomp.json << 'SECCOMPEOF'
+${seccompProfile}
+SECCOMPEOF`
+    );
+  }
+
+  // Write OpenClaw config with token-based auth + Composio plugin
   const instanceDomain = process.env.INSTANCE_DOMAIN || "instances.taroagent.com";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const composioConsumerKey = process.env.COMPOSIO_CONSUMER_KEY || "";
   const openclawConfig = JSON.stringify({
     gateway: {
       controlUi: {
@@ -163,6 +180,18 @@ export const provisionInstance = async (
       bind: "lan",
       trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
     },
+    ...(composioConsumerKey ? {
+      plugins: {
+        entries: {
+          composio: {
+            enabled: true,
+            config: {
+              consumerKey: composioConsumerKey,
+            },
+          },
+        },
+      },
+    } : {}),
   }, null, 2);
   await conn.execCommand(
     `cat > ${instanceDir}/data/openclaw-config/openclaw.json << 'CONFIGEOF'\n${openclawConfig}\nCONFIGEOF`
@@ -186,8 +215,11 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
+      - ./data/mcporter-config:/home/node/.mcporter
     environment:
       - NODE_OPTIONS=--max-old-space-size=1536
+      - NPM_CONFIG_CACHE=/data/.npm-cache
+      - PATH=/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     restart: unless-stopped
     mem_limit: 4g
     memswap_limit: 5g
@@ -197,10 +229,11 @@ services:
     oom_score_adj: -200
     read_only: true
     tmpfs:
-      - /tmp:size=256m,noexec,nosuid,nodev
+      - /tmp:size=256m,nosuid,nodev
       - /run:size=64m,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
+      - seccomp=/opt/taro/seccomp/openclaw-seccomp.json
     cap_drop:
       - ALL
     cap_add:
@@ -221,6 +254,18 @@ COMPOSEEOF`
 
   // Start the stack
   await conn.execCommand(`cd ${instanceDir} && docker compose up -d`);
+
+  // Install mcporter to persistent volume for MCP server management
+  await conn.execCommand(
+    `docker exec -e NPM_CONFIG_CACHE=/tmp/.npm -e NPM_CONFIG_PREFIX=/data/.npm-global ${containerName}-openclaw npm install -g mcporter 2>/dev/null || true`
+  );
+
+  // Install Composio plugin if consumer key is configured
+  if (composioConsumerKey) {
+    await conn.execCommand(
+      `docker exec ${containerName}-openclaw openclaw plugins install @composio/openclaw-plugin 2>/dev/null || true`
+    );
+  }
 
   try {
     // Install ttyd on host if not present
@@ -374,6 +419,10 @@ export const reprovisionInstance = async (
   const conn = await getSSHConnection();
   const instanceDir = `/opt/taro/instances/${instanceName}`;
 
+  // Ensure mcporter config directory exists
+  await conn.execCommand(`mkdir -p ${instanceDir}/data/mcporter-config`);
+  await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/mcporter-config`);
+
   // Rebuild the docker-compose.yml with bridge networking + 4GB memory + security hardening
   const compose = `
 services:
@@ -385,8 +434,11 @@ services:
     volumes:
       - ./data/openclaw:/data
       - ./data/openclaw-config:/home/node/.openclaw
+      - ./data/mcporter-config:/home/node/.mcporter
     environment:
       - NODE_OPTIONS=--max-old-space-size=1536
+      - NPM_CONFIG_CACHE=/data/.npm-cache
+      - PATH=/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     restart: unless-stopped
     mem_limit: 4g
     memswap_limit: 5g
@@ -396,10 +448,11 @@ services:
     oom_score_adj: -200
     read_only: true
     tmpfs:
-      - /tmp:size=256m,noexec,nosuid,nodev
+      - /tmp:size=256m,nosuid,nodev
       - /run:size=64m,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
+      - seccomp=/opt/taro/seccomp/openclaw-seccomp.json
     cap_drop:
       - ALL
     cap_add:
@@ -418,6 +471,47 @@ services:
 ${compose}
 COMPOSEEOF`
   );
+
+  // Rewrite openclaw.json with latest config (gateway auth + Composio plugin)
+  const [instForAuth] = await db
+    .select({ mcAuthToken: instances.mcAuthToken })
+    .from(instances)
+    .where(eq(instances.id, instanceId))
+    .limit(1);
+  if (instForAuth?.mcAuthToken) {
+    const instanceDomainForConfig = process.env.INSTANCE_DOMAIN || "instances.taroagent.com";
+    const appUrlForConfig = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const composioConsumerKey = process.env.COMPOSIO_CONSUMER_KEY || "";
+    const updatedConfig = JSON.stringify({
+      gateway: {
+        controlUi: {
+          allowedOrigins: [
+            `https://${instanceName}.${instanceDomainForConfig}`,
+            appUrlForConfig,
+          ],
+        },
+        auth: { mode: "token", token: instForAuth.mcAuthToken },
+        bind: "lan",
+        trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
+      },
+      ...(composioConsumerKey ? {
+        plugins: {
+          entries: {
+            composio: {
+              enabled: true,
+              config: {
+                consumerKey: composioConsumerKey,
+              },
+            },
+          },
+        },
+      } : {}),
+    }, null, 2);
+    await conn.execCommand(
+      `cat > ${instanceDir}/data/openclaw-config/openclaw.json << 'CONFIGEOF'\n${updatedConfig}\nCONFIGEOF`
+    );
+    await conn.execCommand(`chown -R 1000:1000 ${instanceDir}/data/openclaw-config`);
+  }
 
   // Stop old ttyd container if it exists, then remove it
   await conn.execCommand(

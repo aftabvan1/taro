@@ -27,7 +27,7 @@ export interface TaskDetailModalProps {
 export function TaskDetailModal({
   task,
   agents,
-  token,
+  token: _token,
   onClose,
   onSave,
   onDispatch,

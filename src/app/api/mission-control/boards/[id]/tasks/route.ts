@@ -37,7 +37,7 @@ export async function GET(
 
   // Fetch tags for all tasks — scoped to this board's task IDs
   const taskIds = tasks.map((t) => t.id);
-  let tagMap: Record<string, { id: string; name: string; color: string }[]> = {};
+  const tagMap: Record<string, { id: string; name: string; color: string }[]> = {};
 
   if (taskIds.length > 0) {
     const taskTagRows = await db

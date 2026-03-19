@@ -38,7 +38,7 @@ const itemVariants = {
 
 export default function BillingPage() {
   const { token } = useDashboard();
-  const [currentPlanName, setCurrentPlanName] = useState<string>("Hobby");
+  const [currentPlanName, setCurrentPlanName] = useState<string>("Pro");
   const [hasSubscription, setHasSubscription] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -52,7 +52,7 @@ export default function BillingPage() {
         if (data?.data) {
           const plan = data.data.plan;
           setCurrentPlanName(
-            plan === "pro" ? "Pro" : plan === "teams" ? "Teams" : "Hobby"
+            plan === "pro" ? "Pro" : plan === "teams" ? "Teams" : "Pro"
           );
           setHasSubscription(!!data.data.hasSubscription);
         }
@@ -111,7 +111,7 @@ export default function BillingPage() {
         <CreditCard className="h-5 w-5 text-emerald-500" />
         <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
         <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-          // SUBSCRIPTION MANAGEMENT
+          {"// SUBSCRIPTION MANAGEMENT"}
         </span>
       </motion.div>
 
@@ -191,7 +191,7 @@ export default function BillingPage() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid items-start gap-4 md:grid-cols-3"
+          className="grid items-start gap-4 md:grid-cols-2"
         >
           {PLANS.map((plan) => {
             const isCurrent = plan.name === currentPlanName;

@@ -212,7 +212,7 @@ export default function BackupsPage() {
           <HardDrive className="h-5 w-5 text-emerald-500" />
           <h1 className="text-2xl font-semibold tracking-tight">Backups</h1>
           <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-            // SNAPSHOT MANAGER
+            {"// SNAPSHOT MANAGER"}
           </span>
         </div>
         <button

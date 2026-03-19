@@ -1,7 +1,7 @@
 import { NodeSSH } from "node-ssh";
 import { db } from "@/lib/db";
 import { instances } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 
 /**

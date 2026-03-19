@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -52,53 +52,55 @@ interface EventStyle {
   icon: React.ElementType;
 }
 
+const STYLE_AGENT: EventStyle = {
+  dotColor: "bg-emerald-400",
+  tagBg: "bg-emerald-500/10 border-emerald-500/20",
+  tagText: "text-emerald-400",
+  icon: Bot,
+};
+
+const STYLE_APPROVAL: EventStyle = {
+  dotColor: "bg-amber-400",
+  tagBg: "bg-amber-500/10 border-amber-500/20",
+  tagText: "text-amber-400",
+  icon: Shield,
+};
+
+const STYLE_TASK_DONE: EventStyle = {
+  dotColor: "bg-cyan-400",
+  tagBg: "bg-cyan-500/10 border-cyan-500/20",
+  tagText: "text-cyan-400",
+  icon: CheckCircle2,
+};
+
+const STYLE_DANGER: EventStyle = {
+  dotColor: "bg-red-400",
+  tagBg: "bg-red-500/10 border-red-500/20",
+  tagText: "text-red-400",
+  icon: AlertTriangle,
+};
+
+const STYLE_TASK: EventStyle = {
+  dotColor: "bg-cyan-400",
+  tagBg: "bg-cyan-500/10 border-cyan-500/20",
+  tagText: "text-cyan-400",
+  icon: Terminal,
+};
+
+const STYLE_DEFAULT: EventStyle = {
+  dotColor: "bg-zinc-500",
+  tagBg: "bg-zinc-500/10 border-zinc-500/20",
+  tagText: "text-zinc-400",
+  icon: Activity,
+};
+
 function getEventStyle(type: string): EventStyle {
-  if (type.startsWith("agent_")) {
-    return {
-      dotColor: "bg-emerald-400",
-      tagBg: "bg-emerald-500/10 border-emerald-500/20",
-      tagText: "text-emerald-400",
-      icon: Bot,
-    };
-  }
-  if (type.startsWith("approval_")) {
-    return {
-      dotColor: "bg-amber-400",
-      tagBg: "bg-amber-500/10 border-amber-500/20",
-      tagText: "text-amber-400",
-      icon: Shield,
-    };
-  }
-  if (type === "task_completed" || type === "command_executed") {
-    return {
-      dotColor: "bg-cyan-400",
-      tagBg: "bg-cyan-500/10 border-cyan-500/20",
-      tagText: "text-cyan-400",
-      icon: CheckCircle2,
-    };
-  }
-  if (type === "deploy" || type === "error") {
-    return {
-      dotColor: "bg-red-400",
-      tagBg: "bg-red-500/10 border-red-500/20",
-      tagText: "text-red-400",
-      icon: AlertTriangle,
-    };
-  }
-  if (type.startsWith("task_")) {
-    return {
-      dotColor: "bg-cyan-400",
-      tagBg: "bg-cyan-500/10 border-cyan-500/20",
-      tagText: "text-cyan-400",
-      icon: Terminal,
-    };
-  }
-  return {
-    dotColor: "bg-zinc-500",
-    tagBg: "bg-zinc-500/10 border-zinc-500/20",
-    tagText: "text-zinc-400",
-    icon: Activity,
-  };
+  if (type.startsWith("agent_")) return STYLE_AGENT;
+  if (type.startsWith("approval_")) return STYLE_APPROVAL;
+  if (type === "task_completed" || type === "command_executed") return STYLE_TASK_DONE;
+  if (type === "deploy" || type === "error") return STYLE_DANGER;
+  if (type.startsWith("task_")) return STYLE_TASK;
+  return STYLE_DEFAULT;
 }
 
 // ---------------------------------------------------------------------------

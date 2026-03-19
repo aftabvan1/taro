@@ -45,7 +45,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  plan: planEnum("plan").notNull().default("hobby"),
+  plan: planEnum("plan").notNull().default("pro"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),

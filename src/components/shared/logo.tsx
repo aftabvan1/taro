@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -21,7 +22,7 @@ export const Logo = ({ className, size = "md" }: LogoProps) => {
   };
 
   return (
-    <a href="/" className={cn("flex items-center gap-2 font-bold tracking-tight", sizes[size], className)}>
+    <Link href="/" className={cn("flex items-center gap-2 font-bold tracking-tight", sizes[size], className)}>
       <div className={cn("relative flex items-center justify-center rounded-xl bg-gradient-to-br from-brand-light to-brand-dark", iconSizes[size])}>
         <svg
           width="18"
@@ -51,6 +52,6 @@ export const Logo = ({ className, size = "md" }: LogoProps) => {
       <span>
         taro<span className="text-accent">.</span>
       </span>
-    </a>
+    </Link>
   );
 };

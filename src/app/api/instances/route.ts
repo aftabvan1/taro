@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       .where(eq(instances.userId, auth.userId))
       .limit(1);
 
-    // Hobby plan: 1 instance max
+    // Pro plan: 1 instance max
     if (existing.length >= 1) {
       return NextResponse.json(
         { error: "Instance limit reached for your plan" },

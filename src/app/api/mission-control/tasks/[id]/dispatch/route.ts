@@ -42,7 +42,7 @@ export async function POST(
   }
 
   // Fetch custom field values for context
-  let customFields: Record<string, string> = {};
+  const customFields: Record<string, string> = {};
   try {
     const cfValues = await db
       .select({

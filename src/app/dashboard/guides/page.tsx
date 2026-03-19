@@ -523,7 +523,7 @@ export default function GuidesPage() {
             Setup Guides
           </h1>
           <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-            // CHANNEL INTEGRATIONS
+            {"// CHANNEL INTEGRATIONS"}
           </span>
         </div>
         <p className="mt-2 text-sm text-zinc-500">

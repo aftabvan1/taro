@@ -349,7 +349,7 @@ export default function MonitoringPage() {
               Monitoring
             </h1>
             <span className="font-mono text-xs text-zinc-600">
-              // SYSTEM DIAGNOSTICS
+              {"// SYSTEM DIAGNOSTICS"}
             </span>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function MonitoringPage() {
           <Activity className="h-5 w-5 text-emerald-500" />
           <h1 className="text-2xl font-semibold tracking-tight">Monitoring</h1>
           <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-            // SYSTEM DIAGNOSTICS
+            {"// SYSTEM DIAGNOSTICS"}
           </span>
         </div>
         <div className="flex items-center gap-3">

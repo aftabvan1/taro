@@ -29,7 +29,6 @@ import { relativeTime } from "@/lib/format";
 import { dashboardContainer, dashboardItem } from "@/lib/animation-variants";
 import { agentStatusConfig } from "@/lib/status-config";
 import { useDashboard } from "../layout";
-import { ConnectionStatus } from "@/components/dashboard/connection-status";
 import type { MCAgent, OpenClawSession } from "@/lib/mission-control/types";
 
 // ---------------------------------------------------------------------------
@@ -227,7 +226,6 @@ function CommandPrompt({ token }: { token: string }) {
   );
 }
 
-// ConnectionStatus is imported from @/components/dashboard/connection-status
 
 // ---------------------------------------------------------------------------
 // Live sessions panel
@@ -563,9 +561,6 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ---- Connection Status ---- */}
-      {token && <ConnectionStatus token={token} />}
-
       {/* ---- Stats Bar ---- */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

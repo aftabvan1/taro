@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bot,
   Calendar,
   CheckCircle2,
   GripVertical,
@@ -28,7 +27,7 @@ export interface DraggableTaskCardProps {
 export function DraggableTaskCard({
   task,
   agents,
-  token,
+  token: _token,
   onUpdateTask,
   onDispatch,
   onDelete,
@@ -52,8 +51,8 @@ export function DraggableTaskCard({
   const priority = priorityConfig[task.priority];
   const isOverdue =
     task.due_date &&
-    new Date(task.due_date).getTime() < Date.now() &&
-    task.status !== "done";
+    task.status !== "done" &&
+    daysUntil(task.due_date).includes("overdue");
 
   return (
     <div ref={setNodeRef} style={style} className="group">

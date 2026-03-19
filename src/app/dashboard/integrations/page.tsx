@@ -162,7 +162,7 @@ export default function IntegrationsPage() {
             Integrations
           </h1>
           <span className="hidden font-mono text-xs text-zinc-600 sm:inline">
-            // COMPOSIO CONNECTORS
+            {"// COMPOSIO CONNECTORS"}
           </span>
         </div>
         <p className="mt-2 max-w-lg text-sm text-zinc-500">

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        const plan = subscription.status === "active" ? "pro" : "hobby";
+        const plan = "pro" as const;
         await db
           .update(users)
           .set({
@@ -91,12 +91,12 @@ export async function POST(req: NextRequest) {
         await db
           .update(users)
           .set({
-            plan: "hobby",
+            plan: "pro",
             stripeSubscriptionId: null,
           })
           .where(eq(users.stripeCustomerId, customerId));
 
-        logger.info(`Subscription ${subscription.id} canceled, downgraded to hobby`);
+        logger.info(`Subscription ${subscription.id} canceled, user reverted to free tier`);
         break;
       }
     }
