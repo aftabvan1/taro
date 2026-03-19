@@ -33,21 +33,38 @@ const getSSHConnection = async () => {
 };
 
 /**
- * Allocate ports using an atomic DB query to prevent race conditions.
- * Uses COALESCE + MAX to find the next available port block in a single query.
+ * Allocate ports atomically using a single UPDATE with a subquery.
+ * The subquery calculates the next port block inline, so there's no
+ * window between reading MAX and writing the new port.
  */
-const allocatePorts = async () => {
-  const [result] = await db
-    .select({
-      maxPort: sql<number>`COALESCE(MAX(${instances.openclawPort}), ${PORT_BASE - PORT_STRIDE})`,
-    })
-    .from(instances);
+const allocatePorts = async (instanceId: string) => {
+  const defaultBase = PORT_BASE - PORT_STRIDE;
 
-  const base = (result?.maxPort ?? PORT_BASE - PORT_STRIDE) + PORT_STRIDE;
+  // Single atomic UPDATE: compute next port block and assign in one statement
+  await db
+    .update(instances)
+    .set({
+      openclawPort: sql`(SELECT COALESCE(MAX(openclaw_port), ${defaultBase}) + ${PORT_STRIDE} FROM instances)`,
+      ttydPort: sql`(SELECT COALESCE(MAX(openclaw_port), ${defaultBase}) + ${PORT_STRIDE} + 1 FROM instances)`,
+      mcPort: sql`(SELECT COALESCE(MAX(openclaw_port), ${defaultBase}) + ${PORT_STRIDE} + 2 FROM instances)`,
+    })
+    .where(eq(instances.id, instanceId));
+
+  // Read back the assigned ports
+  const [assigned] = await db
+    .select({
+      openclaw: instances.openclawPort,
+      ttyd: instances.ttydPort,
+      mc: instances.mcPort,
+    })
+    .from(instances)
+    .where(eq(instances.id, instanceId))
+    .limit(1);
+
   return {
-    openclaw: base,
-    ttyd: base + 1,
-    mc: base + 2,
+    openclaw: assigned!.openclaw!,
+    ttyd: assigned!.ttyd!,
+    mc: assigned!.mc!,
   };
 };
 
@@ -139,8 +156,8 @@ export const provisionInstance = async (
   const conn = await getSSHConnection();
   const serverIp = process.env.HETZNER_SERVER_IP!;
 
-  // Allocate ports based on highest currently-used port
-  const ports = await allocatePorts();
+  // Allocate ports atomically (reserves them in DB within a transaction)
+  const ports = await allocatePorts(instanceId);
 
   const containerName = `taro-${instanceName}`;
   const instanceDir = `/opt/taro/instances/${instanceName}`;

@@ -91,12 +91,12 @@ export async function POST(req: NextRequest) {
         await db
           .update(users)
           .set({
-            plan: "pro",
+            plan: "hobby",
             stripeSubscriptionId: null,
           })
           .where(eq(users.stripeCustomerId, customerId));
 
-        logger.info(`Subscription ${subscription.id} canceled, user reverted to free tier`);
+        logger.info(`Subscription ${subscription.id} canceled, user downgraded to hobby`);
         break;
       }
     }
