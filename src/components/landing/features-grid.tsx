@@ -18,11 +18,11 @@ export const FeaturesGrid = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything your agent needs to run.{" "}
-            <span className="text-gradient">Everything you need to manage it.</span>
+            Two frameworks. One platform.{" "}
+            <span className="text-gradient">Zero ops.</span>
           </h2>
           <p className="mt-4 text-muted">
-            Deploy, connect, monitor, and control — all from one platform.
+            OpenClaw and Hermes get the same first-class treatment — deploy, connect, monitor, and control from one dashboard.
           </p>
         </motion.div>
 

@@ -371,9 +371,11 @@ export default function DashboardOverview() {
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(
-            (body as { error?: string }).error ?? "Creation failed"
-          );
+          const details = (body as { details?: { fieldErrors?: Record<string, string[]> } }).details?.fieldErrors;
+          const fieldMsg = details
+            ? Object.values(details).flat().join(". ")
+            : null;
+          throw new Error(fieldMsg || (body as { error?: string }).error || "Creation failed");
         }
         setNewName("");
         await refreshInstances();

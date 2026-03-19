@@ -11,7 +11,7 @@ const STEPS = [
     icon: Rocket,
     title: "Pick your framework",
     description:
-      "OpenClaw for multi-channel messaging. Hermes for self-improving memory. Choose the one that fits — we deploy either in 30 seconds.",
+      "OpenClaw for multi-channel messaging (Telegram, Discord, Slack, WhatsApp). Hermes for self-improving agents with persistent memory. Both deploy in 30 seconds.",
   },
   {
     number: "02",
@@ -40,8 +40,8 @@ export const Comparison = () => {
       >
         <motion.div variants={bouncyItem} className="mb-14 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            From framework debate to working agent.{" "}
-            <span className="text-gradient">30 seconds.</span>
+            Pick a framework. Deploy in 30 seconds.{" "}
+            <span className="text-gradient">Done.</span>
           </h2>
           <p className="mt-4 text-muted">
             No infrastructure knowledge required. No config files. No waiting.

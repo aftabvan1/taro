@@ -39,8 +39,8 @@ export const ProblemSolution = () => {
             <span className="text-gradient">Now who runs it?</span>
           </h2>
           <p className="mt-4 text-muted">
-            Whether you chose OpenClaw for its 20+ channels or Hermes for its
-            persistent memory — you still need infrastructure. We handle that part.
+            OpenClaw for 20+ messaging channels. Hermes for self-improving
+            memory. Either way — you need infrastructure. We handle all of it.
           </p>
         </motion.div>
 

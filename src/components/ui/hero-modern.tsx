@@ -93,18 +93,18 @@ function HeroOrbitDeck() {
               <circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.6" />
               <circle cx="12" cy="12" r="3" fill="currentColor" />
             </svg>
-            Beta pricing — $14/mo locked in forever
+            OpenClaw + Hermes — the only platform that runs both
           </span>
 
           <h1 className="mt-8 font-[family-name:var(--font-fredoka)] text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
-            Your AI agent, always on.{" "}
-            <span className="text-gradient">Live in 30 seconds.</span>
+            Your AI agent.{" "}
+            <span className="text-gradient">Always on. Always managed.</span>
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-foreground/50 md:text-lg">
-            Deploy an AI agent that works 24/7 — answering messages, running
-            tasks, connecting to 850+ tools. See everything it does from one
-            dashboard. $14/mo.
+            Deploy OpenClaw or Hermes in 30 seconds. Connect 850+ tools,
+            monitor everything from one dashboard, and never touch a server.
+            From $14/mo.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -154,22 +154,22 @@ function HeroOrbitDeck() {
             <div className="p-5 font-mono text-[13px] leading-7">
               <div className="flex">
                 <span className="mr-2 text-brand">$</span>
-                <span>taro deploy --prod</span>
+                <span>taro deploy</span>
               </div>
-              <div className="mt-1 text-foreground/35">
-                &nbsp; Provisioning instance on Hetzner...
-              </div>
-              <div className="text-foreground/35">
-                &nbsp; Installing OpenClaw v2.4.1...
+              <div className="mt-1 text-foreground/50">
+                &nbsp; ? Choose framework: <span className="text-brand">OpenClaw</span> / Hermes
               </div>
               <div className="text-foreground/35">
-                &nbsp; Starting Mission Control...
+                &nbsp; → Deploying OpenClaw v2026.3...
               </div>
               <div className="mt-1 text-brand">
-                &nbsp; ✓ Instance live — taroagent.com/your-agent
+                &nbsp; ✓ Agent live at agent.taroagent.com
               </div>
               <div className="text-brand">
-                &nbsp; ✓ Dashboard ready
+                &nbsp; ✓ Mission Control ready
+              </div>
+              <div className="text-brand">
+                &nbsp; ✓ 850+ integrations connected
               </div>
               <div className="mt-2 flex">
                 <span className="mr-2 text-brand">$</span>

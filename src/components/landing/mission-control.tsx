@@ -244,6 +244,9 @@ export const MissionControl = () => {
             shows you every task, every decision, every skill your agent creates — so
             you&apos;re always in the loop, not just hoping it&apos;s doing the right thing.
           </p>
+          <p className="mt-3 max-w-md text-sm font-medium text-brand">
+            Same dashboard whether you run OpenClaw or Hermes. Switch frameworks, keep your workflow.
+          </p>
           <ul className="mt-6 space-y-3">
             {[
               "Know which agents are busy, idle, or stuck — at a glance",
