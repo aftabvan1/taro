@@ -234,7 +234,7 @@ services:
       - ./data/openclaw-config:/home/node/.openclaw
       - ./data/mcporter-config:/home/node/.mcporter
     environment:
-      - NODE_OPTIONS=--max-old-space-size=1536
+      - NODE_OPTIONS=--max-old-space-size=1024
       - NPM_CONFIG_CACHE=/data/.npm-cache
       - PATH=/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     restart: unless-stopped
@@ -453,7 +453,7 @@ services:
       - ./data/openclaw-config:/home/node/.openclaw
       - ./data/mcporter-config:/home/node/.mcporter
     environment:
-      - NODE_OPTIONS=--max-old-space-size=1536
+      - NODE_OPTIONS=--max-old-space-size=1024
       - NPM_CONFIG_CACHE=/data/.npm-cache
       - PATH=/data/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     restart: unless-stopped

@@ -7,7 +7,7 @@ export const PLANS = [
     features: [
       "2 vCPU, 4GB RAM",
       "Full web terminal",
-      "Hourly automated backups",
+      "Backups & one-click restore",
       "Full Mission Control dashboard",
       "Real-time resource monitoring",
       "850+ Composio integrations",
@@ -28,7 +28,7 @@ export const PLANS = [
     features: [
       "4 vCPU, 8GB RAM",
       "Full web terminal",
-      "Continuous backups",
+      "Backups & one-click restore",
       "Full Mission Control dashboard",
       "Real-time resource monitoring",
       "850+ Composio integrations",
@@ -67,9 +67,9 @@ export const FEATURES = [
     icon: "Activity",
   },
   {
-    title: "Automated Backups",
+    title: "Backups & Restore",
     description:
-      "Never lose your agent's memory or config. Automatic backups with one-click restore — sleep well.",
+      "Never lose your agent's memory or config. One-click backups and instant restore — sleep well.",
     icon: "ShieldCheck",
   },
   {
