@@ -382,6 +382,11 @@ COMPOSEEOF`
     throw new Error(`docker compose up failed: ${composeUp.stdout} ${composeUp.stderr}`.trim());
   }
 
+  // Wait for the container process to be ready before running post-startup commands
+  await conn.execCommand(
+    `for i in $(seq 1 30); do docker exec ${containerName}-${fw.containerSuffix} true 2>/dev/null && break; sleep 2; done`
+  );
+
   // OpenClaw-only post-startup steps
   if (fw.needsMcporter) {
     await conn.execCommand(
@@ -390,9 +395,53 @@ COMPOSEEOF`
   }
 
   if (fw.needsComposio && composioConsumerKey) {
+    // Wait for OpenClaw gateway to initialize before installing plugins
     await conn.execCommand(
-      `docker exec ${containerName}-${fw.containerSuffix} openclaw plugins install @composio/openclaw-plugin 2>/dev/null || true`
+      `for i in $(seq 1 15); do docker exec ${containerName}-${fw.containerSuffix} openclaw config file 2>/dev/null && break; sleep 3; done`
     );
+    await conn.execCommand(
+      `docker exec ${containerName}-${fw.containerSuffix} openclaw plugins install @composio/openclaw-plugin 2>&1 || true`
+    );
+  }
+
+  // Write bootstrap instructions so the agent knows about Taro and its tools
+  const bootstrapMd = `# Welcome to Taro
+
+You are an AI agent hosted on **Taro** (taroagent.com) — a managed OpenClaw hosting platform.
+
+## Your Tools
+
+${composioConsumerKey ? `### Composio Integration (Active)
+You have **Composio** installed — this gives you access to **850+ third-party tools** including:
+- **Communication:** Gmail, Slack, Discord, Telegram, WhatsApp
+- **Development:** GitHub, GitLab, Linear, Jira
+- **Productivity:** Google Sheets, Notion, Trello, Airtable, Google Calendar
+- **Social:** Twitter/X, LinkedIn, Reddit
+- **Finance:** Stripe, QuickBooks
+- **And hundreds more**
+
+To connect a new tool, use the Composio integration. When your human asks you to connect to a service (e.g., "connect my Gmail" or "link my Twitter"), use the Composio tools available to you to initiate the OAuth flow and provide them the authorization link.
+` : ""}
+### Built-in OpenClaw Tools
+- **Browser control** — navigate, screenshot, interact with web pages
+- **File management** — read, write, organize files in your workspace
+- **Shell commands** — run system commands when needed
+- **Web search** — search the internet for information
+- **Cron jobs** — schedule recurring tasks
+
+## Your Environment
+- You're running on a dedicated server with 2 CPUs and 4GB RAM
+- Your data persists across restarts in /data
+- You have a web terminal accessible from the Taro dashboard
+
+## Getting Started
+Follow the rest of the default bootstrap flow — introduce yourself, learn about your human, set up your identity. Then explore your tools and start being helpful.
+`;
+  await conn.execCommand(
+    `mkdir -p ${instanceDir}/data/openclaw-config/workspace && cat > ${instanceDir}/data/openclaw-config/workspace/BOOTSTRAP.md << 'BOOTSTRAPEOF'\n${bootstrapMd}\nBOOTSTRAPEOF`
+  );
+  if (fw.runAsUser !== 0) {
+    await conn.execCommand(`chown -R ${fw.runAsUser}:${fw.runAsUser} ${instanceDir}/data/openclaw-config/workspace`);
   }
 
   try {
