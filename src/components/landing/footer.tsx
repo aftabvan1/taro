@@ -67,6 +67,13 @@ export const Footer = () => {
             Made with boba and late nights by Taro Labs &middot; &copy; {new Date().getFullYear()}
           </p>
           <div className="flex items-center gap-4">
+            <a href="https://startupdirectory.net" target="_blank" rel="noopener noreferrer">
+              <img
+                src="https://startupdirectory.net/badge/featured-dark.svg"
+                alt="Featured on Startup Directory"
+                className="h-5 opacity-60 transition-opacity hover:opacity-100"
+              />
+            </a>
             {/* GitHub */}
             <a
               href="#"
