@@ -69,7 +69,7 @@ export const Footer = () => {
           <div className="flex items-center gap-4">
             <a href="https://startupdirectory.net" target="_blank" rel="noopener noreferrer">
               <img
-                src="https://startupdirectory.net/badge/featured-dark.svg"
+                src="/badges/featured-dark.svg"
                 alt="Featured on Startup Directory"
                 className="h-5 opacity-60 transition-opacity hover:opacity-100"
               />
