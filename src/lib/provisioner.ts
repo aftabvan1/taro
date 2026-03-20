@@ -282,6 +282,14 @@ SECCOMPEOF`
         bind: "lan",
         trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
       },
+      tools: {
+        elevated: {
+          enabled: true,
+          allowFrom: {
+            webchat: ["browser"],
+          },
+        },
+      },
       ...(composioConsumerKey ? {
         plugins: {
           entries: {
@@ -695,6 +703,14 @@ COMPOSEEOF`
           auth: { mode: "token", token: instForAuth.mcAuthToken },
           bind: "lan",
           trustedProxies: ["172.16.0.0/12", "10.0.0.0/8"],
+        },
+        tools: {
+          elevated: {
+            enabled: true,
+            allowFrom: {
+              webchat: ["browser"],
+            },
+          },
         },
         ...(composioConsumerKey ? {
           plugins: {
