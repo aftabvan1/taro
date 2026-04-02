@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/logo.svg" alt="Taro" width="80" />
+  <img src="public/taro-logo.png" alt="Taro" height="80" />
 </p>
 
 <h1 align="center">Taro</h1>
