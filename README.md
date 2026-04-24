@@ -593,6 +593,7 @@ The server runs:
 /opt/taro/seccomp/              # Seccomp profiles
 /etc/caddy/sites/               # Per-instance Caddy configs
 ```
+<img width="972" height="307" alt="Screenshot 2026-04-23 at 10 32 15 PM" src="https://github.com/user-attachments/assets/18589ff8-947a-4450-bc42-300b85e5e321" />
 
 ---
 
